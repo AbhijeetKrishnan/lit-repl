@@ -1,24 +1,37 @@
 const std = @import("std");
 
-pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
-
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
+fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
+    // Ref.: https://zig.guide/standard-library/readers-and-writers
+    var line = (try reader.readUntilDelimiterOrEof(
+        buffer,
+        '\n',
+    )) orelse return null;
+    // trim annoying windows-only carriage return character
+    if (@import("builtin").os.tag == .windows) {
+        return std.mem.trimRight(u8, line, "\r");
+    } else {
+        return line;
+    }
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+pub fn main() !void {
+    const stdin = std.io.getStdIn();
+    const stdout = std.io.getStdOut();
+
+    var is_exit: bool = false;
+    var command_buffer: [1024]u8 = undefined;
+
+    try stdout.writer().print("Welcome to the Infinite!Lit REPL v0.0.1.\n", .{});
+    try stdout.writer().print("Type \"help\" for more information, \"init\" to start a new game, or \"exit\" to close the program.\n", .{});
+
+    while (!is_exit) {
+        try stdout.writer().print("lit> ", .{});
+        const input = (try nextLine(stdin.reader(), &command_buffer)).?;
+        try stdout.writer().print("You entered: \"{s}\"\n", .{input});
+        if (std.mem.eql(u8, input, "exit")) {
+            is_exit = true;
+            try stdout.writer().print("Exiting...\n", .{});
+            continue;
+        }
+    }
 }
