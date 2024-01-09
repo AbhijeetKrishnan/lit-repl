@@ -27,11 +27,21 @@ pub fn main() !void {
     while (!is_exit) {
         try stdout.writer().print("lit> ", .{});
         const input = (try nextLine(stdin.reader(), &command_buffer)).?;
-        try stdout.writer().print("You entered: \"{s}\"\n", .{input});
-        if (std.mem.eql(u8, input, "exit")) {
+        std.debug.print("You entered: \"{s}\"\n", .{input});
+
+        var it = std.mem.split(u8, input, " ");
+        var command = it.next() orelse return error.InvalidInput;
+        std.debug.print("Command: \"{s}\"\n", .{command});
+
+        if (std.mem.eql(u8, command, "exit") or std.mem.eql(u8, command, "quit")) {
             is_exit = true;
             try stdout.writer().print("Exiting...\n", .{});
-            continue;
+        } else if (std.mem.eql(u8, command, "help")) {
+            try stdout.writer().print("Help is not yet implemented.\n", .{});
+        } else if (std.mem.eql(u8, command, "init")) {
+            try stdout.writer().print("Init is not yet implemented.\n", .{});
+        } else {
+            try stdout.writer().print("Unknown command \"{s}\".\n", .{command});
         }
     }
 }
