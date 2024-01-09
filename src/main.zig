@@ -1,4 +1,5 @@
 const std = @import("std");
+const lit = @import("lit.zig");
 
 fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     // Ref.: https://zig.guide/standard-library/readers-and-writers
@@ -14,6 +15,17 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     }
 }
 
+const HELP_TEXT =
+    \\help: print this help text
+    \\exit: exit the Infinite!Lit REPL
+    \\init: start a new game with 6 players
+    \\ask [player] [card]: ask a player for a card
+    \\last [n]: show the last n asks
+    \\show: show the current game state
+    \\claim <cardlist> [player]=<cardlist>: claim a set
+    \\end: terminate the game
+;
+
 pub fn main() !void {
     const stdin = std.io.getStdIn();
     const stdout = std.io.getStdOut();
@@ -23,6 +35,9 @@ pub fn main() !void {
 
     try stdout.writer().print("Welcome to the Infinite!Lit REPL v0.0.1.\n", .{});
     try stdout.writer().print("Type \"help\" for more information, \"init\" to start a new game, or \"exit\" to close the program.\n", .{});
+
+    var game: ?lit.Game = null;
+    _ = game;
 
     while (!is_exit) {
         try stdout.writer().print("lit> ", .{});
@@ -37,7 +52,7 @@ pub fn main() !void {
             is_exit = true;
             try stdout.writer().print("Exiting...\n", .{});
         } else if (std.mem.eql(u8, command, "help")) {
-            try stdout.writer().print("Help is not yet implemented.\n", .{});
+            try stdout.writer().print("{s}\n", .{HELP_TEXT});
         } else if (std.mem.eql(u8, command, "init")) {
             try stdout.writer().print("Init is not yet implemented.\n", .{});
         } else {
