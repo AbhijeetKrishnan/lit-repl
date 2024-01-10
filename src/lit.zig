@@ -96,7 +96,7 @@ const Card = struct {
         _ = fmt;
         _ = options;
 
-        try writer.print("{}{}", self.suit, self.suit); // TODO: investigate using the unicode versions of each card https://en.wikipedia.org/wiki/Playing_cards_in_Unicode#Playing_cards_deck
+        try writer.print("{}{}", .{ self.suit, self.rank }); // TODO: investigate using the unicode versions of each card https://en.wikipedia.org/wiki/Playing_cards_in_Unicode#Playing_cards_deck
     }
 };
 
@@ -121,8 +121,8 @@ const Player = struct {
 fn generateDeck() [48]Card {
     var deck: [48]Card = undefined;
     var ptr: u8 = 0;
-    for (Suit.Clubs..Suit.Spades) |suit| {
-        for (Rank.Two..Rank.Ace) |rank| {
+    for (std.enums.values(Suit)) |suit| {
+        for (std.enums.values(Rank)) |rank| {
             deck[ptr] = Card{ .suit = suit, .rank = rank };
             ptr += 1;
         }
@@ -132,33 +132,48 @@ fn generateDeck() [48]Card {
 
 test "generate a deck" {
     var deck: [48]Card = generateDeck();
-    std.debug.print("{}\n", deck);
+    std.debug.print("{any}\n", .{deck});
     try expect(deck.len == 48);
 }
 
 /// Deal cards to each player
-fn dealCards(num_players: PlayerCount) []std.ArrayList(Card) {
+fn dealCards(num_players: PlayerCount) !std.ArrayList(std.ArrayList(Card)) {
     var deck: [48]Card = comptime generateDeck();
-    deck.shuffle();
 
-    var hands: [num_players]std.ArrayList(Card) = undefined;
-    const hand_size: u8 = 48 / num_players;
-    for (0..num_players) |i| {
-        hands[i] = std.ArrayList(Card).init(hand_size);
+    var seed: u64 = undefined;
+    try std.os.getrandom(std.mem.asBytes(&seed));
+
+    var prng = std.rand.DefaultPrng.init(seed);
+    const rand = &prng.random();
+
+    rand.shuffle(Card, &deck);
+
+    var heap_allocator = std.heap.page_allocator;
+
+    var hands: std.ArrayList(std.ArrayList(Card)) = std.ArrayList(std.ArrayList(Card)).init(heap_allocator);
+    const hand_size: u8 = 48 / @intFromEnum(num_players);
+    for (0..@intFromEnum(num_players)) |i| {
+        var hand = std.ArrayList(Card).init(heap_allocator);
         for (0..hand_size) |j| {
-            _ = j;
-            hands[i].append(deck.pop());
+            try hand.append(deck[i * hand_size + j]);
         }
+        try hands.append(hand);
     }
     return hands;
 }
 
 test "deal cards" {
-    var hands: []std.ArrayList(Card) = dealCards(PlayerCount.SIX);
-    std.debug.print("{}\n", hands);
-    try expect(hands.len == 6);
-    for (hands) |hand| {
-        try expect(hand.len == 8);
+    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(PlayerCount.SIX);
+    std.debug.print("0: {any}\n", .{hands.items[0].items});
+    std.debug.print("1: {any}\n", .{hands.items[1].items});
+    std.debug.print("2: {any}\n", .{hands.items[2].items});
+    std.debug.print("3: {any}\n", .{hands.items[3].items});
+    std.debug.print("4: {any}\n", .{hands.items[4].items});
+    std.debug.print("5: {any}\n", .{hands.items[5].items});
+
+    try expect(hands.items.len == 6);
+    for (hands.items) |hand| {
+        try expect(hand.items.len == 8);
     }
 }
 
