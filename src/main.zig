@@ -37,7 +37,6 @@ pub fn main() !void {
     try stdout.writer().print("Type \"help\" for more information, \"init\" to start a new game, or \"exit\" to close the program.\n", .{});
 
     var game: ?lit.Game = null;
-    _ = game;
 
     while (!is_exit) {
         try stdout.writer().print("lit> ", .{});
@@ -54,9 +53,13 @@ pub fn main() !void {
         } else if (std.mem.eql(u8, command, "help")) {
             try stdout.writer().print("{s}\n", .{HELP_TEXT});
         } else if (std.mem.eql(u8, command, "init")) {
-            try stdout.writer().print("Init is not yet implemented.\n", .{});
+            // TODO: potentially deinit existing game, if any
+            const num_players: lit.PlayerCount = lit.PlayerCount.SIX; // TODO: capture num_players from command
+            game = try lit.Game.init(num_players);
+            try stdout.writer().print("Initialized a new game with {d} players.\n", .{6});
         } else {
             try stdout.writer().print("Unknown command \"{s}\".\n", .{command});
         }
+        // TODO: implement game-related commands
     }
 }
