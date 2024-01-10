@@ -9,8 +9,8 @@ A Zig-based command-line tool to play the card game [Lit](https://www.pagat.com/
 _Written using Zig v.0.11.0_
 
 ```bash
-$ git clone git@github.com:AbhijeetKrishnan/infinite-lit
-$ cd infinite-lit
+$ git clone git@github.com:AbhijeetKrishnan/lit-repl
+$ cd lit-repl
 $ zig build
 ```
 
@@ -21,5 +21,5 @@ I found playing Lit fun, and wanted to devise an optimal strategy. However, it r
 ## Usage
 
 ```bash
-$ ./zig-out/bin/infinite-lit
+$ ./zig-out/bin/lit-repl
 ```
