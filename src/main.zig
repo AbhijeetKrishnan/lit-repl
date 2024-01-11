@@ -65,7 +65,8 @@ pub fn main() !void {
         std.debug.print("You entered: \"{s}\"\n", .{input});
 
         var command_list = try splitCommand(input);
-        var command = command_list[0];
+        std.debug.print("Command list length: {d}\n", .{command_list.items.len});
+        var command = command_list.items[0];
         std.debug.print("Command: \"{s}\"\n", .{command});
 
         if (std.mem.eql(u8, command, "exit") or std.mem.eql(u8, command, "quit")) {
@@ -75,7 +76,14 @@ pub fn main() !void {
             try stdout.writer().print("{s}\n", .{HELP_TEXT});
         } else if (std.mem.eql(u8, command, "init")) {
             // TODO: potentially deinit existing game, if any
-            const num_players: lit.PlayerCount = lit.PlayerCount.SIX; // TODO: capture num_players from command
+
+            const num_players: lit.PlayerCount = switch (command_list.items.len) {
+                1 => lit.PlayerCount.SIX,
+                else => blk: {
+                    const input_player_count = try std.fmt.parseInt(u8, command_list.items[1], 10);
+                    break :blk try lit.PlayerCount.intToEnum(input_player_count);
+                },
+            };
             game = try lit.Game.init(num_players);
             try stdout.writer().print("Initialized a new game with {d} players.\n", .{@intFromEnum(num_players)});
         } else if (std.mem.eql(u8, command, "ask")) {
@@ -83,7 +91,7 @@ pub fn main() !void {
         } else if (std.mem.eql(u8, command, "last")) {
             try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
         } else if (std.mem.eql(u8, command, "show")) {
-            try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
+            try stdout.writer().print("{?}\n", .{game});
         } else if (std.mem.eql(u8, command, "claim")) {
             try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
         } else if (std.mem.eql(u8, command, "end")) {

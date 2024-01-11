@@ -110,13 +110,56 @@ const Possibility = enum(u8) {
 pub const PlayerCount = enum(u8) {
     SIX = 6,
     EIGHT = 8,
+
+    pub fn intToEnum(i: u8) !PlayerCount {
+        switch (i) {
+            6 => return PlayerCount.SIX,
+            8 => return PlayerCount.EIGHT,
+            else => return undefined,
+        }
+    }
 };
 
 const Player = struct {
     team: bool, // false = even, true = odd
     hand: std.ArrayList(Card),
     possibilities: [48]Possibility, // 48 cards grouped into 8 sets of 6
+
+    pub fn format(self: Player, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+
+        try writer.print("Team: {}\n", .{self.team});
+        try writer.print("Hand: {any}\n", .{self.hand.items});
+        try writer.print("Possibilities: {any}\n", .{self.possibilities});
+    }
+
+    /// Initialize the set of players for the game
+    /// Randomly deal a hand to each player
+    fn initPlayers(num_players: PlayerCount) !std.ArrayList(Player) {
+        var heap_allocator = std.heap.page_allocator;
+        var players: std.ArrayList(Player) = std.ArrayList(Player).init(heap_allocator);
+        for (0..@intFromEnum(num_players)) |i| {
+            try players.append(Player{
+                .team = (i % 2 == 0),
+                .hand = undefined,
+                .possibilities = undefined, // TODO: initialize possibilities to Unknown
+            });
+        }
+        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(num_players);
+        for (0..@intFromEnum(num_players)) |i| {
+            players.items[i].hand = hands.items[i];
+        }
+        return players;
+    }
 };
+
+test "display players" {
+    var players: std.ArrayList(Player) = try Player.initPlayers(PlayerCount.SIX);
+    for (players.items) |player| {
+        std.debug.print("{any}\n", .{player});
+    }
+}
 
 fn generateDeck() [48]Card {
     var deck: [48]Card = undefined;
@@ -177,34 +220,36 @@ test "deal cards" {
     }
 }
 
-/// Initialize the set of players for the game
-/// Randomly deal a hand to each player
-fn initPlayers(num_players: PlayerCount) error{OutOfMemory}!std.ArrayList(Player) {
-    var heap_allocator = std.heap.page_allocator;
-    var players: std.ArrayList(Player) = std.ArrayList(Player).init(heap_allocator);
-    for (0..@intFromEnum(num_players)) |i| {
-        try players.append(Player{
-            .team = (i % 2 == 0),
-            .hand = undefined, // TODO: shuffle deck and assign randomly
-            .possibilities = undefined, // TODO: initialize possibilities to Unknown
-        });
-    }
-    return players;
-}
-
 pub const Game = struct {
     players: std.ArrayList(Player),
-    num_players: PlayerCount = PlayerCount.SIX, // 6
+    num_players: PlayerCount = PlayerCount.SIX,
     odd_sets: u8 = 0, // count of odd team sets
     even_sets: u8 = 0, // count of even team sets
 
+    pub fn format(self: Game, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+
+        for (self.players.items) |player| {
+            try writer.print("{any}\n", .{player});
+        }
+        try writer.print("Num Players: {d}\n", .{@intFromEnum(self.num_players)});
+        try writer.print("Odd Sets: {d}\n", .{self.odd_sets});
+        try writer.print("Even Sets: {d}\n", .{self.even_sets});
+    }
+
     /// Initialize a new game
-    pub fn init(num_players: PlayerCount) error{OutOfMemory}!Game {
+    pub fn init(num_players: PlayerCount) !Game {
         var game: Game = undefined;
         game.num_players = num_players;
-        game.players = try initPlayers(num_players);
+        game.players = try Player.initPlayers(num_players);
         game.odd_sets = 0;
         game.even_sets = 0;
         return game;
     }
 };
+
+test "display a game" {
+    var game: Game = try Game.init(PlayerCount.SIX);
+    std.debug.print("{}\n", .{game});
+}
