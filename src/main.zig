@@ -57,7 +57,7 @@ pub fn main() !void {
     try stdout.writer().print("Welcome to the Infinite!Lit REPL v0.0.1.\n", .{});
     try stdout.writer().print("Type \"help\" for more information, \"init\" to start a new game, or \"exit\" to close the program.\n", .{});
 
-    var game: ?lit.Game = null;
+    var game: lit.Game = undefined;
 
     while (!is_exit) {
         try stdout.writer().print("lit> ", .{});
@@ -74,7 +74,7 @@ pub fn main() !void {
             try stdout.writer().print("Exiting...\n", .{});
         } else if (std.mem.eql(u8, command, "help")) {
             try stdout.writer().print("{s}\n", .{HELP_TEXT});
-        } else if (std.mem.eql(u8, command, "init")) {
+        } else if (std.mem.eql(u8, command, "init") or std.mem.eql(u8, command, "start")) {
             // TODO: potentially deinit existing game, if any
 
             const num_players: lit.PlayerCount = switch (command_list.items.len) {
@@ -87,7 +87,16 @@ pub fn main() !void {
             game = try lit.Game.init(num_players);
             try stdout.writer().print("Initialized a new game with {d} players.\n", .{@intFromEnum(num_players)});
         } else if (std.mem.eql(u8, command, "ask")) {
-            try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
+            var player_id = try std.fmt.parseInt(u8, command_list.items[1], 10);
+            const card = try lit.Card.parseCard(command_list.items[2]);
+            std.debug.print("{} asking player {d} for card {}.\n", .{ game.current_player.id, player_id, card });
+            var asked_player = game.getPlayer(player_id);
+            const success = try game.ask(asked_player, card);
+            if (success) {
+                try stdout.writer().print("Yes. Player {} receives card {} from Player {d}.\n", .{ game.current_player.id, card, asked_player.id });
+            } else {
+                try stdout.writer().print("No. Turn passes to Player {d}\n", .{asked_player.id});
+            }
         } else if (std.mem.eql(u8, command, "last")) {
             try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
         } else if (std.mem.eql(u8, command, "show")) {

@@ -26,6 +26,16 @@ const Suit = enum(u8) {
             },
         }
     }
+
+    pub fn parseSuit(suit: []const u8) !Suit {
+        return switch (suit[0]) {
+            'c', 'C' => Suit.Clubs,
+            'd', 'D' => Suit.Diamonds,
+            'h', 'H' => Suit.Hearts,
+            's', 'S' => Suit.Spades,
+            else => undefined,
+        };
+    }
 };
 
 const Rank = enum(u8) {
@@ -86,9 +96,27 @@ const Rank = enum(u8) {
             },
         }
     }
+
+    pub fn parseRank(rank: []const u8) !Rank {
+        return switch (rank[0]) {
+            '2' => Rank.Two,
+            '3' => Rank.Three,
+            '4' => Rank.Four,
+            '5' => Rank.Five,
+            '6' => Rank.Six,
+            '7' => Rank.Seven,
+            '9' => Rank.Nine,
+            '0' => Rank.Ten, // TODO: handle 10 better
+            'j', 'J' => Rank.Jack,
+            'q', 'Q' => Rank.Queen,
+            'k', 'K' => Rank.King,
+            'a', 'A' => Rank.Ace,
+            else => undefined,
+        };
+    }
 };
 
-const Card = struct {
+pub const Card = struct {
     suit: Suit,
     rank: Rank,
 
@@ -98,7 +126,32 @@ const Card = struct {
 
         try writer.print("{}{}", .{ self.suit, self.rank }); // TODO: investigate using the unicode versions of each card https://en.wikipedia.org/wiki/Playing_cards_in_Unicode#Playing_cards_deck
     }
+
+    pub fn parseCard(card: []const u8) !Card {
+        var rank: Rank = undefined;
+        var suit: Suit = undefined;
+        switch (card.len) {
+            2 => {
+                rank = try Rank.parseRank(card[0..1]);
+                suit = try Suit.parseSuit(card[1..2]);
+            },
+            3 => {
+                rank = try Rank.parseRank(card[0..2]);
+                suit = try Suit.parseSuit(card[2..3]);
+            },
+            else => return undefined,
+        }
+
+        return Card{ .suit = suit, .rank = rank };
+    }
 };
+
+test "parse a card" {
+    var card: Card = try Card.parseCard("2C");
+    std.debug.print("{any}\n", .{card});
+    try expect(card.suit == Suit.Clubs);
+    try expect(card.rank == Rank.Two);
+}
 
 const Possibility = enum(u8) {
     Unknown,
@@ -121,6 +174,7 @@ pub const PlayerCount = enum(u8) {
 };
 
 const Player = struct {
+    id: usize, // player ID, used as index into players array
     team: bool, // false = even, true = odd
     hand: std.ArrayList(Card),
     possibilities: [48]Possibility, // 48 cards grouped into 8 sets of 6
@@ -129,18 +183,20 @@ const Player = struct {
         _ = fmt;
         _ = options;
 
+        try writer.print("ID: {}\n", .{self.id});
         try writer.print("Team: {}\n", .{self.team});
-        try writer.print("Hand: {any}\n", .{self.hand.items});
-        try writer.print("Possibilities: {any}\n", .{self.possibilities});
+        try writer.print("Hand: {s}\n", .{self.hand.items});
+        // try writer.print("Possibilities: {any}\n", .{self.possibilities});
     }
 
     /// Initialize the set of players for the game
     /// Randomly deal a hand to each player
     fn initPlayers(num_players: PlayerCount) !std.ArrayList(Player) {
         var heap_allocator = std.heap.page_allocator;
-        var players: std.ArrayList(Player) = std.ArrayList(Player).init(heap_allocator);
+        var players: std.ArrayList(Player) = try std.ArrayList(Player).initCapacity(heap_allocator, @intFromEnum(num_players));
         for (0..@intFromEnum(num_players)) |i| {
             try players.append(Player{
+                .id = i,
                 .team = (i % 2 == 0),
                 .hand = undefined,
                 .possibilities = undefined, // TODO: initialize possibilities to Unknown
@@ -180,7 +236,7 @@ test "generate a deck" {
 }
 
 /// Deal cards to each player
-fn dealCards(num_players: PlayerCount) !std.ArrayList(std.ArrayList(Card)) {
+fn dealCards(num_players: PlayerCount) !std.ArrayList(std.ArrayList(Card)) { // TODO: pass seed as optional param
     var deck: [48]Card = comptime generateDeck();
 
     var seed: u64 = undefined;
@@ -193,7 +249,7 @@ fn dealCards(num_players: PlayerCount) !std.ArrayList(std.ArrayList(Card)) {
 
     var heap_allocator = std.heap.page_allocator;
 
-    var hands: std.ArrayList(std.ArrayList(Card)) = std.ArrayList(std.ArrayList(Card)).init(heap_allocator);
+    var hands: std.ArrayList(std.ArrayList(Card)) = try std.ArrayList(std.ArrayList(Card)).initCapacity(heap_allocator, @intFromEnum(num_players));
     const hand_size: u8 = 48 / @intFromEnum(num_players);
     for (0..@intFromEnum(num_players)) |i| {
         var hand = std.ArrayList(Card).init(heap_allocator);
@@ -225,6 +281,7 @@ pub const Game = struct {
     num_players: PlayerCount = PlayerCount.SIX,
     odd_sets: u8 = 0, // count of odd team sets
     even_sets: u8 = 0, // count of even team sets
+    current_player: *Player, // current player
 
     pub fn format(self: Game, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
@@ -236,6 +293,7 @@ pub const Game = struct {
         try writer.print("Num Players: {d}\n", .{@intFromEnum(self.num_players)});
         try writer.print("Odd Sets: {d}\n", .{self.odd_sets});
         try writer.print("Even Sets: {d}\n", .{self.even_sets});
+        try writer.print("Current Player: {d}\n", .{self.current_player});
     }
 
     /// Initialize a new game
@@ -245,7 +303,39 @@ pub const Game = struct {
         game.players = try Player.initPlayers(num_players);
         game.odd_sets = 0;
         game.even_sets = 0;
+        game.current_player = &game.players.items[0]; // game starts with player 0
         return game;
+    }
+
+    /// Get player given player ID // TODO: get player by name/alias
+    pub fn getPlayer(self: *Game, player_id: u8) *Player {
+        return &self.players.items[player_id]; // TODO: shouldn't this possibly fail if index is out of bounds?
+    }
+
+    /// Ask a player for a card
+    /// Returns true if the card was found and performs the transfer between
+    /// players
+    /// Returns false if the card was not found and passes the turn to the asked
+    /// player
+    pub fn ask(self: *Game, asked_player: *Player, asked_card: Card) !bool {
+        var asking_player = self.current_player;
+        try expect(asking_player.team != asked_player.team); // TODO: handle asking player == asked player
+        var found: bool = false;
+        var found_idx: usize = undefined;
+        for (0..asked_player.hand.items.len) |i| {
+            if (std.meta.eql(asked_player.hand.items[i], asked_card)) {
+                found = true;
+                found_idx = i;
+                break;
+            }
+        }
+        if (found) {
+            const found_card = asked_player.hand.swapRemove(found_idx);
+            try asking_player.hand.append(found_card);
+        } else {
+            self.current_player = asked_player;
+        }
+        return found;
     }
 };
 
