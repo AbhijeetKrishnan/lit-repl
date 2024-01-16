@@ -15,10 +15,9 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     }
 }
 
-fn splitCommand(input: []const u8) !std.ArrayList([]const u8) {
-    var splits = std.mem.split(u8, input, " ");
-    var heap_allocator = std.heap.page_allocator;
-    var split_list: std.ArrayList([]const u8) = std.ArrayList([]const u8).init(heap_allocator);
+fn splitCommand(allocator: std.mem.Allocator, input: []const u8) !std.ArrayList([]const u8) {
+    var splits = std.mem.splitSequence(u8, input, " ");
+    var split_list: std.ArrayList([]const u8) = std.ArrayList([]const u8).init(allocator);
     while (splits.next()) |chunk| {
         try split_list.append(chunk);
     }
@@ -78,7 +77,7 @@ fn help() !void {
     try stdout.writer().print("{s}\n", .{HELP_TEXT});
 }
 
-fn init(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
+fn init(allocator: std.mem.Allocator, curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
 
     if (curr_game.*) |_| {
@@ -91,12 +90,12 @@ fn init(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
                 break :blk try lit.PlayerCount.intToEnum(input_player_count);
             },
         };
-        curr_game.* = try lit.Game.init(num_players);
+        curr_game.* = try lit.Game.init(allocator, num_players);
         try stdout.writer().print("Initialized a new game with {d} players.\n", .{@intFromEnum(num_players)});
     }
 }
 
-fn ask(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
+fn ask(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
 
     var player_id = try std.fmt.parseInt(u8, command_list.items[1], 10);
@@ -116,7 +115,7 @@ fn ask(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
     }
 }
 
-fn last(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
+fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
 
     if (curr_game.*) |*game| {
@@ -129,7 +128,7 @@ fn last(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
     }
 }
 
-fn claim(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
+fn claim(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     _ = command_list;
     const stdout = std.io.getStdOut();
 
@@ -144,7 +143,8 @@ fn claim(curr_game: *?lit.Game, command_list: std.ArrayList([]const u8)) !void {
 fn end(curr_game: *?lit.Game) !void {
     const stdout = std.io.getStdOut();
 
-    if (curr_game.*) |_| {
+    if (curr_game.*) |*game| {
+        try game.deinit();
         curr_game.* = null;
         try stdout.writer().print("Existing game was ended.\n", .{});
     } else {
@@ -162,11 +162,16 @@ pub fn main() !void {
 
     try stdout.writer().print("{s}\n", .{WELCOME_TEXT});
 
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(gpa.deinit() == .ok);
+    const allocator = gpa.allocator();
+
     while (!is_exit) {
         try printPrompt(curr_game);
         const input = (try nextLine(stdin.reader(), &command_buffer)).?;
 
-        var command_list = try splitCommand(input);
+        var command_list = try splitCommand(allocator, input);
+        defer command_list.deinit();
         var command = command_list.items[0];
 
         if (std.mem.eql(u8, command, "exit") or std.mem.eql(u8, command, "quit")) {
@@ -175,15 +180,15 @@ pub fn main() !void {
         } else if (std.mem.eql(u8, command, "help")) {
             try help();
         } else if (std.mem.eql(u8, command, "init") or std.mem.eql(u8, command, "start")) {
-            try init(&curr_game, command_list);
+            try init(allocator, &curr_game, &command_list);
         } else if (std.mem.eql(u8, command, "ask")) {
-            try ask(&curr_game, command_list);
+            try ask(&curr_game, &command_list);
         } else if (std.mem.eql(u8, command, "last")) {
-            try last(&curr_game, command_list);
+            try last(&curr_game, &command_list);
         } else if (std.mem.eql(u8, command, "show")) {
             try stdout.writer().print("{?}\n", .{curr_game});
         } else if (std.mem.eql(u8, command, "claim")) {
-            try claim(&curr_game, command_list);
+            try claim(&curr_game, &command_list);
         } else if (std.mem.eql(u8, command, "end")) {
             try end(&curr_game);
         } else {

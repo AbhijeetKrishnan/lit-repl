@@ -188,9 +188,8 @@ const Player = struct {
 
     /// Initialize the set of players for the game
     /// Randomly deal a hand to each player
-    fn initPlayers(num_players: PlayerCount) !std.ArrayList(Player) {
-        var heap_allocator = std.heap.page_allocator;
-        var players: std.ArrayList(Player) = try std.ArrayList(Player).initCapacity(heap_allocator, @intFromEnum(num_players));
+    fn initPlayers(allocator: std.mem.Allocator, num_players: PlayerCount) !std.ArrayList(Player) {
+        var players: std.ArrayList(Player) = try std.ArrayList(Player).initCapacity(allocator, @intFromEnum(num_players));
         for (0..@intFromEnum(num_players)) |i| {
             try players.append(Player{
                 .id = i,
@@ -199,7 +198,8 @@ const Player = struct {
                 .possibilities = undefined, // TODO: initialize possibilities to Unknown
             });
         }
-        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(num_players, null);
+        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(allocator, num_players, null);
+        defer hands.deinit();
         for (0..@intFromEnum(num_players)) |i| {
             players.items[i].hand = hands.items[i];
         }
@@ -226,7 +226,7 @@ test "generate a deck" {
 }
 
 /// Deal cards to each player
-fn dealCards(num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(Card)) { // TODO: pass seed as optional param
+fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(Card)) { // TODO: pass seed as optional param
     var deck: [48]Card = comptime generateDeck();
     var true_seed: u64 = undefined;
 
@@ -241,12 +241,10 @@ fn dealCards(num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(
 
     rand.shuffle(Card, &deck);
 
-    var heap_allocator = std.heap.page_allocator;
-
-    var hands: std.ArrayList(std.ArrayList(Card)) = try std.ArrayList(std.ArrayList(Card)).initCapacity(heap_allocator, @intFromEnum(num_players));
+    var hands: std.ArrayList(std.ArrayList(Card)) = try std.ArrayList(std.ArrayList(Card)).initCapacity(allocator, @intFromEnum(num_players));
     const hand_size: u8 = 48 / @intFromEnum(num_players);
     for (0..@intFromEnum(num_players)) |i| {
-        var hand = std.ArrayList(Card).init(heap_allocator);
+        var hand = std.ArrayList(Card).init(allocator);
         for (0..hand_size) |j| {
             try hand.append(deck[i * hand_size + j]);
         }
@@ -296,14 +294,21 @@ pub const Game = struct {
     }
 
     /// Initialize a new game
-    pub fn init(num_players: PlayerCount) !Game {
+    pub fn init(allocator: std.mem.Allocator, num_players: PlayerCount) !Game {
         var game: Game = undefined;
         game.num_players = num_players;
-        game.players = try Player.initPlayers(num_players);
+        game.players = try Player.initPlayers(allocator, num_players);
         game.odd_sets = 0;
         game.even_sets = 0;
         game.current_player = &game.players.items[0]; // game starts with player 0
         return game;
+    }
+
+    pub fn deinit(self: *Game) !void {
+        for (self.players.items) |player| {
+            player.hand.deinit();
+        }
+        self.players.deinit();
     }
 
     /// Get player given player ID // TODO: get player by name/alias
