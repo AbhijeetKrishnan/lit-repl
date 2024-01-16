@@ -37,14 +37,14 @@ test "split a command" {
 }
 
 const HELP_TEXT =
-    \\help: print this help text
-    \\exit: exit the Infinite!Lit REPL
-    \\init: start a new game with 6 players
-    \\ask [player] [card]: ask a player for a card
-    \\last [n]: show the last n asks
-    \\show: show the current game state
-    \\claim <cardlist> [player]=<cardlist>: claim a set
-    \\end: terminate the game
+    \\  help: print this help text
+    \\  exit: exit the Infinite!Lit REPL
+    \\  init: start a new game with 6 players
+    \\  ask [player] [card]: ask a player for a card
+    \\  last [n]: show the last n asks
+    \\  show: show the current game state
+    \\  claim <cardlist> [player]=<cardlist>: claim a set
+    \\  end: terminate the game
 ;
 
 pub fn main() !void {
@@ -57,10 +57,14 @@ pub fn main() !void {
     try stdout.writer().print("Welcome to the Infinite!Lit REPL v0.0.1.\n", .{});
     try stdout.writer().print("Type \"help\" for more information, \"init\" to start a new game, or \"exit\" to close the program.\n", .{});
 
-    var game: lit.Game = undefined;
+    var currGame: ?lit.Game = null;
 
     while (!is_exit) {
-        try stdout.writer().print("lit> ", .{});
+        if (currGame) |game| {
+            try stdout.writer().print("lit {}*> ", .{game.current_player.id});
+        } else {
+            try stdout.writer().print("lit> ", .{});
+        }
         const input = (try nextLine(stdin.reader(), &command_buffer)).?;
         std.debug.print("You entered: \"{s}\"\n", .{input});
 
@@ -75,38 +79,49 @@ pub fn main() !void {
         } else if (std.mem.eql(u8, command, "help")) {
             try stdout.writer().print("{s}\n", .{HELP_TEXT});
         } else if (std.mem.eql(u8, command, "init") or std.mem.eql(u8, command, "start")) {
-            // TODO: potentially deinit existing game, if any
-
-            const num_players: lit.PlayerCount = switch (command_list.items.len) {
-                1 => lit.PlayerCount.SIX,
-                else => blk: {
-                    const input_player_count = try std.fmt.parseInt(u8, command_list.items[1], 10);
-                    break :blk try lit.PlayerCount.intToEnum(input_player_count);
-                },
-            };
-            game = try lit.Game.init(num_players);
-            try stdout.writer().print("Initialized a new game with {d} players.\n", .{@intFromEnum(num_players)});
+            if (currGame) |_| {
+                try stdout.writer().print("A game is already in progress. Please \"end\" it before starting a new one.\n", .{});
+                continue;
+            } else {
+                const num_players: lit.PlayerCount = switch (command_list.items.len) {
+                    1 => lit.PlayerCount.SIX,
+                    else => blk: {
+                        const input_player_count = try std.fmt.parseInt(u8, command_list.items[1], 10);
+                        break :blk try lit.PlayerCount.intToEnum(input_player_count);
+                    },
+                };
+                currGame = try lit.Game.init(num_players);
+                try stdout.writer().print("Initialized a new game with {d} players.\n", .{@intFromEnum(num_players)});
+            }
         } else if (std.mem.eql(u8, command, "ask")) {
             var player_id = try std.fmt.parseInt(u8, command_list.items[1], 10);
             const card = try lit.Card.parseCard(command_list.items[2]);
-            std.debug.print("{} asking player {d} for card {}.\n", .{ game.current_player.id, player_id, card });
-            var asked_player = game.getPlayer(player_id);
-            const success = try game.ask(asked_player, card);
-            if (success) {
-                try stdout.writer().print("Yes. Player {} receives card {} from Player {d}.\n", .{ game.current_player.id, card, asked_player.id });
+            if (currGame) |*game| {
+                std.debug.print("{} asking player {d} for card {}.\n", .{ game.current_player.id, player_id, card });
+                var asked_player = game.getPlayer(player_id);
+                const success = try game.ask(asked_player, card);
+                if (success) {
+                    try stdout.writer().print("Yes. Player {} receives card {} from Player {d}.\n", .{ game.current_player.id, card, asked_player.id });
+                } else {
+                    try stdout.writer().print("No. Turn passes to Player {d}\n", .{asked_player.id});
+                }
             } else {
-                try stdout.writer().print("No. Turn passes to Player {d}\n", .{asked_player.id});
+                try stdout.writer().print("No game is currently in progress.\n", .{});
             }
         } else if (std.mem.eql(u8, command, "last")) {
             try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
         } else if (std.mem.eql(u8, command, "show")) {
-            try stdout.writer().print("{?}\n", .{game});
+            try stdout.writer().print("{?}\n", .{currGame});
         } else if (std.mem.eql(u8, command, "claim")) {
             try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
         } else if (std.mem.eql(u8, command, "end")) {
-            try stdout.writer().print("Not implemented yet.\n", .{}); // TODO: implement
+            currGame = null;
         } else {
             try stdout.writer().print("Unknown command \"{s}\".\n", .{command});
         }
     }
+}
+
+test {
+    std.testing.refAllDeclsRecursive(@This());
 }

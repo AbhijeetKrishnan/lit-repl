@@ -185,7 +185,7 @@ const Player = struct {
 
         try writer.print("ID: {}\n", .{self.id});
         try writer.print("Team: {}\n", .{self.team});
-        try writer.print("Hand: {s}\n", .{self.hand.items});
+        try writer.print("Hand: {s}", .{self.hand.items});
         // try writer.print("Possibilities: {any}\n", .{self.possibilities});
     }
 
@@ -293,7 +293,7 @@ pub const Game = struct {
         try writer.print("Num Players: {d}\n", .{@intFromEnum(self.num_players)});
         try writer.print("Odd Sets: {d}\n", .{self.odd_sets});
         try writer.print("Even Sets: {d}\n", .{self.even_sets});
-        try writer.print("Current Player: {d}\n", .{self.current_player});
+        try writer.print("Current Player: {d}\n", .{self.current_player.id});
     }
 
     /// Initialize a new game
@@ -308,7 +308,7 @@ pub const Game = struct {
     }
 
     /// Get player given player ID // TODO: get player by name/alias
-    pub fn getPlayer(self: *Game, player_id: u8) *Player {
+    pub fn getPlayer(self: *const Game, player_id: u8) *Player {
         return &self.players.items[player_id]; // TODO: shouldn't this possibly fail if index is out of bounds?
     }
 
@@ -319,7 +319,9 @@ pub const Game = struct {
     /// player
     pub fn ask(self: *Game, asked_player: *Player, asked_card: Card) !bool {
         var asking_player = self.current_player;
-        try expect(asking_player.team != asked_player.team); // TODO: handle asking player == asked player
+        try expect(asking_player.team != asked_player.team); // TODO: display error
+        try expect(asked_player.hand.items.len > 0); // TODO: display error
+        // TODO: handle check for half-suit of card being asked being present in asking player's hand
         var found: bool = false;
         var found_idx: usize = undefined;
         for (0..asked_player.hand.items.len) |i| {
