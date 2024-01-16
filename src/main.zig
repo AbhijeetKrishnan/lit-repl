@@ -146,7 +146,7 @@ fn end(curr_game: *?lit.Game) !void {
     if (curr_game.*) |*game| {
         try game.deinit();
         curr_game.* = null;
-        try stdout.writer().print("Existing game was ended.\n", .{});
+        try stdout.writer().print("Game terminated.\n", .{});
     } else {
         try stdout.writer().print("{s}\n", .{NO_GAME_TEXT});
     }
