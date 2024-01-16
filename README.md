@@ -104,14 +104,14 @@ No. Turn passes to Player 1
 lit 1*> 
 ```
 
-Cards are represented using a string that is matched by the regex `(?<val>[02-9jqka])(?<suit>[hcds])`
+Cards are represented using a string that is matched by the regex `(?<val>[02-9jqka])(?<suit>[cdhs])`
 
 | Suit | Symbol |
 | :--: | :----: |
-| Heart (♥) | `h` |
 | Clubs (♣) | `c` |
-| Diamond (♦) | `d` |
-| Spade (♠) | `s` |
+| Diamonds (♦) | `d` |
+| Hearts (♥) | `h` |
+| Spades (♠) | `s` |
 
 | Rank | Symbol |
 | :--: | :----: |
@@ -123,7 +123,7 @@ Cards are represented using a string that is matched by the regex `(?<val>[02-9j
 | 7 | `7` |
 | 8 | `8` |
 | 9 | `9` |
-| 10 | `0` |
+| 10 | `0`, `10` |
 | Jack | `j` |
 | Queen | `q` |
 | King | `k` |

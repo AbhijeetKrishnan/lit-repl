@@ -12,18 +12,10 @@ const Suit = enum(u8) {
         _ = options;
 
         switch (self) {
-            .Clubs => {
-                try writer.writeAll("♣");
-            },
-            .Diamonds => {
-                try writer.writeAll("♦");
-            },
-            .Hearts => {
-                try writer.writeAll("♥");
-            },
-            .Spades => {
-                try writer.writeAll("♠");
-            },
+            .Clubs => try writer.writeAll("♣"),
+            .Diamonds => try writer.writeAll("♦"),
+            .Hearts => try writer.writeAll("♥"),
+            .Spades => try writer.writeAll("♠"),
         }
     }
 
@@ -58,42 +50,18 @@ const Rank = enum(u8) {
         _ = options;
 
         switch (self) {
-            .Two => {
-                try writer.writeAll("2");
-            },
-            .Three => {
-                try writer.writeAll("3");
-            },
-            .Four => {
-                try writer.writeAll("4");
-            },
-            .Five => {
-                try writer.writeAll("5");
-            },
-            .Six => {
-                try writer.writeAll("6");
-            },
-            .Seven => {
-                try writer.writeAll("7");
-            },
-            .Nine => {
-                try writer.writeAll("9");
-            },
-            .Ten => {
-                try writer.writeAll("10");
-            },
-            .Jack => {
-                try writer.writeAll("J");
-            },
-            .Queen => {
-                try writer.writeAll("Q");
-            },
-            .King => {
-                try writer.writeAll("K");
-            },
-            .Ace => {
-                try writer.writeAll("A");
-            },
+            .Two => try writer.writeAll("2"),
+            .Three => try writer.writeAll("3"),
+            .Four => try writer.writeAll("4"),
+            .Five => try writer.writeAll("5"),
+            .Six => try writer.writeAll("6"),
+            .Seven => try writer.writeAll("7"),
+            .Nine => try writer.writeAll("9"),
+            .Ten => try writer.writeAll("10"),
+            .Jack => try writer.writeAll("J"),
+            .Queen => try writer.writeAll("Q"),
+            .King => try writer.writeAll("K"),
+            .Ace => try writer.writeAll("A"),
         }
     }
 
@@ -106,13 +74,35 @@ const Rank = enum(u8) {
             '6' => Rank.Six,
             '7' => Rank.Seven,
             '9' => Rank.Nine,
-            '0' => Rank.Ten, // TODO: handle 10 better
+            '0' => Rank.Ten,
+            '1' => {
+                return switch (rank[1]) {
+                    '0' => Rank.Ten,
+                    else => undefined,
+                };
+            },
             'j', 'J' => Rank.Jack,
             'q', 'Q' => Rank.Queen,
             'k', 'K' => Rank.King,
             'a', 'A' => Rank.Ace,
             else => undefined,
         };
+    }
+
+    test "parse rank" {
+        var rank: Rank = undefined;
+        const tests = [_]u8{
+            '2', '3', '4', '5', '6', '7', '9', '0', 'j', 'J', 'q', 'Q', 'k', 'K', 'a', 'A',
+        };
+        const expected = [_]Rank{
+            Rank.Two, Rank.Three, Rank.Four, Rank.Five, Rank.Six, Rank.Seven, Rank.Nine, Rank.Ten, Rank.Jack, Rank.Jack, Rank.Queen, Rank.Queen, Rank.King, Rank.King, Rank.Ace, Rank.Ace,
+        };
+        for (tests, expected) |t, e| {
+            rank = try Rank.parseRank(&[_]u8{t});
+            std.debug.print("{c}\n", .{t});
+            try expect(rank == e);
+        }
+        try expect(try Rank.parseRank("10") == Rank.Ten);
     }
 };
 
@@ -144,14 +134,14 @@ pub const Card = struct {
 
         return Card{ .suit = suit, .rank = rank };
     }
-};
 
-test "parse a card" {
-    var card: Card = try Card.parseCard("2C");
-    std.debug.print("{any}\n", .{card});
-    try expect(card.suit == Suit.Clubs);
-    try expect(card.rank == Rank.Two);
-}
+    test "parse a card" {
+        var card: Card = try Card.parseCard("2C");
+        std.debug.print("{any}\n", .{card});
+        try expect(card.suit == Suit.Clubs);
+        try expect(card.rank == Rank.Two);
+    }
+};
 
 const Possibility = enum(u8) {
     Unknown,
@@ -189,6 +179,13 @@ const Player = struct {
         // try writer.print("Possibilities: {any}\n", .{self.possibilities});
     }
 
+    test "display players" {
+        var players: std.ArrayList(Player) = try Player.initPlayers(PlayerCount.SIX);
+        for (players.items) |player| {
+            std.debug.print("{any}\n", .{player});
+        }
+    }
+
     /// Initialize the set of players for the game
     /// Randomly deal a hand to each player
     fn initPlayers(num_players: PlayerCount) !std.ArrayList(Player) {
@@ -202,20 +199,13 @@ const Player = struct {
                 .possibilities = undefined, // TODO: initialize possibilities to Unknown
             });
         }
-        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(num_players);
+        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(num_players, null);
         for (0..@intFromEnum(num_players)) |i| {
             players.items[i].hand = hands.items[i];
         }
         return players;
     }
 };
-
-test "display players" {
-    var players: std.ArrayList(Player) = try Player.initPlayers(PlayerCount.SIX);
-    for (players.items) |player| {
-        std.debug.print("{any}\n", .{player});
-    }
-}
 
 fn generateDeck() [48]Card {
     var deck: [48]Card = undefined;
@@ -236,13 +226,17 @@ test "generate a deck" {
 }
 
 /// Deal cards to each player
-fn dealCards(num_players: PlayerCount) !std.ArrayList(std.ArrayList(Card)) { // TODO: pass seed as optional param
+fn dealCards(num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(Card)) { // TODO: pass seed as optional param
     var deck: [48]Card = comptime generateDeck();
+    var true_seed: u64 = undefined;
 
-    var seed: u64 = undefined;
-    try std.os.getrandom(std.mem.asBytes(&seed));
+    if (seed) |s| {
+        true_seed = s;
+    } else {
+        try std.os.getrandom(std.mem.asBytes(&true_seed));
+    }
 
-    var prng = std.rand.DefaultPrng.init(seed);
+    var prng = std.rand.DefaultPrng.init(true_seed);
     const rand = &prng.random();
 
     rand.shuffle(Card, &deck);
@@ -262,7 +256,7 @@ fn dealCards(num_players: PlayerCount) !std.ArrayList(std.ArrayList(Card)) { // 
 }
 
 test "deal cards" {
-    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(PlayerCount.SIX);
+    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(PlayerCount.SIX, 0);
     std.debug.print("0: {any}\n", .{hands.items[0].items});
     std.debug.print("1: {any}\n", .{hands.items[1].items});
     std.debug.print("2: {any}\n", .{hands.items[2].items});
@@ -294,6 +288,11 @@ pub const Game = struct {
         try writer.print("Odd Sets: {d}\n", .{self.odd_sets});
         try writer.print("Even Sets: {d}\n", .{self.even_sets});
         try writer.print("Current Player: {d}\n", .{self.current_player.id});
+    }
+
+    test "display a game" {
+        var game: Game = try Game.init(PlayerCount.SIX);
+        std.debug.print("{}\n", .{game});
     }
 
     /// Initialize a new game
@@ -340,8 +339,3 @@ pub const Game = struct {
         return found;
     }
 };
-
-test "display a game" {
-    var game: Game = try Game.init(PlayerCount.SIX);
-    std.debug.print("{}\n", .{game});
-}
