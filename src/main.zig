@@ -103,8 +103,24 @@ fn ask(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
 
     if (curr_game.*) |*game| {
         std.debug.print("{} asking player {d} for card {}.\n", .{ game.current_player.id, player_id, card });
-        var asked_player = game.getPlayer(player_id);
-        const success = try game.ask(asked_player, card);
+        var asked_player = try game.getPlayer(player_id);
+        const success = game.ask(asked_player, card) catch |err| {
+            switch (err) {
+                lit.GameError.AskingSelfTeam => {
+                    try stdout.writer().print("Illegal ask: Asker ({}) and askee ({}) are on the same team.\n", .{ player_id, asked_player.id });
+                },
+                lit.GameError.AskingFromEmpty => {
+                    try stdout.writer().print("Illegal ask: Askee's ({}) hand is empty.\n", .{asked_player.id});
+                },
+                lit.GameError.HalfSuitAbsent => {
+                    try stdout.writer().print("Illegal ask: Asker ({}) does not possess card of same half-suit.\n", .{player_id});
+                },
+                else => {
+                    try stdout.writer().print("An error occurred: {}\n", .{err});
+                },
+            }
+            return;
+        };
         if (success) {
             try stdout.writer().print("Yes. Player {} receives card {} from Player {d}.\n", .{ game.current_player.id, card, asked_player.id });
         } else {
@@ -175,6 +191,8 @@ pub fn main() !void {
         var command = command_list.items[0];
 
         if (std.mem.eql(u8, command, "exit") or std.mem.eql(u8, command, "quit")) {
+            // TODO: ask for confirmation if game is in progress
+            // TODO: clean up memory properly
             is_exit = true;
             try stdout.writer().print("{s}\n", .{EXIT_TEXT});
         } else if (std.mem.eql(u8, command, "help")) {

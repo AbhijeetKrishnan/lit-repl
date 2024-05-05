@@ -141,6 +141,18 @@ pub const Card = struct {
         try expect(card.suit == Suit.Clubs);
         try expect(card.rank == Rank.Two);
     }
+
+    pub fn in_half_suit(self: Card, half: Half, suit: Suit) bool {
+        return switch (half) {
+            Half.Low => self.rank <= Rank.Seven,
+            Half.High => self.rank > Rank.Seven,
+        } and self.suit == suit;
+    }
+};
+
+const Half = enum(u8) {
+    Low,
+    High,
 };
 
 const Possibility = enum(u8) {
@@ -226,7 +238,7 @@ test "generate a deck" {
 }
 
 /// Deal cards to each player
-fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(Card)) { // TODO: pass seed as optional param
+fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(Card)) {
     var deck: [48]Card = comptime generateDeck();
     var true_seed: u64 = undefined;
 
@@ -267,6 +279,8 @@ test "deal cards" {
         try expect(hand.items.len == 8);
     }
 }
+
+pub const GameError = error{ PlayerIndexOutOfBounds, AskingSelfTeam, AskingFromEmpty, HalfSuitAbsent, PartialHalfSetClaimed };
 
 pub const Game = struct {
     players: std.ArrayList(Player),
@@ -312,8 +326,11 @@ pub const Game = struct {
     }
 
     /// Get player given player ID // TODO: get player by name/alias
-    pub fn getPlayer(self: *const Game, player_id: u8) *Player {
-        return &self.players.items[player_id]; // TODO: shouldn't this possibly fail if index is out of bounds?
+    pub fn getPlayer(self: *const Game, player_id: u8) !*Player {
+        if (player_id >= self.players.items.len or player_id < 0) {
+            return GameError.PlayerIndexOutOfBounds;
+        }
+        return &self.players.items[player_id];
     }
 
     /// Ask a player for a card
@@ -323,8 +340,10 @@ pub const Game = struct {
     /// player
     pub fn ask(self: *Game, asked_player: *Player, asked_card: Card) !bool {
         var asking_player = self.current_player;
-        try expect(asking_player.team != asked_player.team); // TODO: display error
-        try expect(asked_player.hand.items.len > 0); // TODO: display error
+        if (!(asking_player.team != asked_player.team))
+            return GameError.AskingSelfTeam;
+        if (asked_player.hand.items.len <= 0)
+            return GameError.AskingFromEmpty;
         // TODO: handle check for half-suit of card being asked being present in asking player's hand
         var found: bool = false;
         var found_idx: usize = undefined;
@@ -342,5 +361,83 @@ pub const Game = struct {
             self.current_player = asked_player;
         }
         return found;
+    }
+
+    /// Check whether the claim for a suit is valid
+    pub fn check_claim(self: *Game, claiming_player: *Player, half: Half, suit: Suit, claims: [3]std.ArrayList(Card)) bool {
+        try expect(claiming_player.id == self.current_player.id);
+        _ = suit;
+        // TODO: check that half and suit lines up with claims
+        // TODO: ensure no duplicate claims
+
+        var half_set: [6]bool = [_]bool{false} ** 6;
+        // iterate over each player of team
+        for (claims.enumerate()) |item| {
+            const index = item.index;
+            const claim = item.value;
+            const player_idx = index * 2 + if (claiming_player.team) 1 else 0;
+            const player = &self.players.items[player_idx];
+
+            // each card in the claim must be in the player's hand
+            for (claim.items) |card| {
+                var found: bool = false;
+                for (player.hand.items) |hand_card| {
+                    if (std.meta.eql(hand_card, card)) {
+                        found = true;
+                        const rank_idx: u8 = @intFromEnum(card.rank) - if (half == Half.Low) 0 else 6;
+                        half_set[rank_idx] = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    // TODO: better way of communicating why claim failed?
+                    return false;
+                }
+            }
+        }
+
+        // check that the half set is complete
+        for (half_set) |card| {
+            if (!card) {
+                // TODO: better way of communicating why claim failed?
+                return false;
+            }
+        }
+
+        // TODO: how to check if team had the half set but claimed the wrong distribution? No points awarded in that case
+
+        return true;
+    }
+
+    /// Given a claim, execute it
+    pub fn execute_claim(self: *Game, claiming_player: *Player, half: Half, suit: Suit, is_successful: bool) !void {
+        // for each player, remove cards of the claimed set from their hand
+        for (self.players) |player| {
+            if (player.team != claiming_player.team) {
+                continue;
+            }
+            for (player.hand.items) |card| {
+                if (card.in_half_suit(half, suit)) {
+                    player.hand.swapRemove(card);
+                }
+            }
+        }
+
+        // award team a point
+        if (is_successful) {
+            // award the claiming team a point
+            if (claiming_player.team) {
+                self.odd_sets += 1;
+            } else {
+                self.even_sets += 1;
+            }
+        } else {
+            // award the other team a point
+            if (claiming_player.team) {
+                self.even_sets += 1;
+            } else {
+                self.odd_sets += 1;
+            }
+        }
     }
 };
