@@ -26,7 +26,8 @@ fn splitCommand(allocator: std.mem.Allocator, input: []const u8) !std.ArrayList(
 
 test "split a command" {
     var input = "claim ah,kh,qh 3=jh 5=9h,10h";
-    var list: std.ArrayList([]const u8) = try splitCommand(input);
+    const allocator = std.testing.allocator;
+    var list: std.ArrayList([]const u8) = try splitCommand(allocator, input);
     defer list.deinit();
     try std.testing.expect(list.items.len == 4);
     try std.testing.expect(std.mem.eql(u8, list.items[0], "claim"));

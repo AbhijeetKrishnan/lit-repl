@@ -181,6 +181,10 @@ const Player = struct {
     hand: std.ArrayList(Card),
     possibilities: [48]Possibility, // 48 cards grouped into 8 sets of 6
 
+    pub fn deinit(self: *const Player) !void {
+        self.hand.deinit();
+    }
+
     pub fn format(self: Player, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
@@ -192,9 +196,14 @@ const Player = struct {
     }
 
     test "display players" {
-        var players: std.ArrayList(Player) = try Player.initPlayers(PlayerCount.SIX);
+        var allocator = std.testing.allocator;
+        var players: std.ArrayList(Player) = try Player.initPlayers(allocator, PlayerCount.SIX);
+        defer players.deinit();
         for (players.items) |player| {
             std.debug.print("{any}\n", .{player});
+            defer player.deinit() catch |err| {
+                std.debug.print("Error: {any}\n", .{err});
+            };
         }
     }
 
@@ -266,7 +275,9 @@ fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64)
 }
 
 test "deal cards" {
-    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(PlayerCount.SIX, 0);
+    var allocator = std.testing.allocator;
+    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(allocator, PlayerCount.SIX, 0);
+
     std.debug.print("0: {any}\n", .{hands.items[0].items});
     std.debug.print("1: {any}\n", .{hands.items[1].items});
     std.debug.print("2: {any}\n", .{hands.items[2].items});
@@ -278,6 +289,11 @@ test "deal cards" {
     for (hands.items) |hand| {
         try expect(hand.items.len == 8);
     }
+
+    for (hands.items) |hand| {
+        defer hand.deinit();
+    }
+    defer hands.deinit();
 }
 
 pub const GameError = error{ PlayerIndexOutOfBounds, AskingSelfTeam, AskingFromEmpty, HalfSuitAbsent, PartialHalfSetClaimed };
@@ -302,11 +318,6 @@ pub const Game = struct {
         try writer.print("Current Player: {d}\n", .{self.current_player.id});
     }
 
-    test "display a game" {
-        var game: Game = try Game.init(PlayerCount.SIX);
-        std.debug.print("{}\n", .{game});
-    }
-
     /// Initialize a new game
     pub fn init(allocator: std.mem.Allocator, num_players: PlayerCount) !Game {
         var game: Game = undefined;
@@ -323,6 +334,15 @@ pub const Game = struct {
             player.hand.deinit();
         }
         self.players.deinit();
+    }
+
+    test "display a game" {
+        var allocator = std.testing.allocator;
+        var game: Game = try Game.init(allocator, PlayerCount.SIX);
+        std.debug.print("{}\n", .{game});
+        defer game.deinit() catch |err| {
+            std.debug.print("Error: {any}\n", .{err});
+        };
     }
 
     /// Get player given player ID // TODO: get player by name/alias
