@@ -136,7 +136,7 @@ pub const Card = struct {
     }
 
     test "parse a card" {
-        var card: Card = try Card.parseCard("2C");
+        const card: Card = try Card.parseCard("2C");
         std.debug.print("{any}\n", .{card});
         try expect(card.suit == Suit.Clubs);
         try expect(card.rank == Rank.Two);
@@ -196,7 +196,7 @@ const Player = struct {
     }
 
     test "display players" {
-        var allocator = std.testing.allocator;
+        const allocator = std.testing.allocator;
         var players: std.ArrayList(Player) = try Player.initPlayers(allocator, PlayerCount.SIX);
         defer players.deinit();
         for (players.items) |player| {
@@ -241,7 +241,7 @@ fn generateDeck() [48]Card {
 }
 
 test "generate a deck" {
-    var deck: [48]Card = generateDeck();
+    const deck: [48]Card = generateDeck();
     std.debug.print("{any}\n", .{deck});
     try expect(deck.len == 48);
 }
@@ -254,7 +254,7 @@ fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64)
     if (seed) |s| {
         true_seed = s;
     } else {
-        try std.os.getrandom(std.mem.asBytes(&true_seed));
+        try std.posix.getrandom(std.mem.asBytes(&true_seed));
     }
 
     var prng = std.rand.DefaultPrng.init(true_seed);
@@ -275,7 +275,7 @@ fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64)
 }
 
 test "deal cards" {
-    var allocator = std.testing.allocator;
+    const allocator = std.testing.allocator;
     var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(allocator, PlayerCount.SIX, 0);
 
     std.debug.print("0: {any}\n", .{hands.items[0].items});
@@ -337,7 +337,7 @@ pub const Game = struct {
     }
 
     test "display a game" {
-        var allocator = std.testing.allocator;
+        const allocator = std.testing.allocator;
         var game: Game = try Game.init(allocator, PlayerCount.SIX);
         std.debug.print("{}\n", .{game});
         defer game.deinit() catch |err| {

@@ -3,7 +3,7 @@ const lit = @import("lit.zig");
 
 fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     // Ref.: https://zig.guide/standard-library/readers-and-writers
-    var line = (try reader.readUntilDelimiterOrEof(
+    const line = (try reader.readUntilDelimiterOrEof(
         buffer,
         '\n',
     )) orelse return null;
@@ -25,7 +25,7 @@ fn splitCommand(allocator: std.mem.Allocator, input: []const u8) !std.ArrayList(
 }
 
 test "split a command" {
-    var input = "claim ah,kh,qh 3=jh 5=9h,10h";
+    const input = "claim ah,kh,qh 3=jh 5=9h,10h";
     const allocator = std.testing.allocator;
     var list: std.ArrayList([]const u8) = try splitCommand(allocator, input);
     defer list.deinit();
@@ -99,12 +99,12 @@ fn init(allocator: std.mem.Allocator, curr_game: *?lit.Game, command_list: *std.
 fn ask(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
 
-    var player_id = try std.fmt.parseInt(u8, command_list.items[1], 10);
+    const player_id = try std.fmt.parseInt(u8, command_list.items[1], 10);
     const card = try lit.Card.parseCard(command_list.items[2]);
 
     if (curr_game.*) |*game| {
         std.debug.print("{} asking player {d} for card {}.\n", .{ game.current_player.id, player_id, card });
-        var asked_player = try game.getPlayer(player_id);
+        const asked_player = try game.getPlayer(player_id);
         const success = game.ask(asked_player, card) catch |err| {
             switch (err) {
                 lit.GameError.AskingSelfTeam => {
@@ -137,7 +137,7 @@ fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
 
     if (curr_game.*) |*game| {
         _ = game;
-        var num_last = try std.fmt.parseInt(u8, command_list.items[1], 10);
+        const num_last = try std.fmt.parseInt(u8, command_list.items[1], 10);
         _ = num_last;
         try stdout.writer().print("TODO: implement\n", .{});
     } else {
@@ -189,7 +189,7 @@ pub fn main() !void {
 
         var command_list = try splitCommand(allocator, input);
         defer command_list.deinit();
-        var command = command_list.items[0];
+        const command = command_list.items[0];
 
         if (std.mem.eql(u8, command, "exit") or std.mem.eql(u8, command, "quit")) {
             // TODO: ask for confirmation if game is in progress
