@@ -46,7 +46,7 @@ fn printPrompt(curr_game: ?lit.Game) !void {
 }
 
 const WELCOME_TEXT =
-    \\Welcome to the Infinite!Lit REPL v0.0.1.
+    \\Welcome to the Infinite!Lit REPL v0.1.0.
     \\Type "help" for more information, "init" to start a new game, or "exit" to close the program.
 ;
 
@@ -132,14 +132,24 @@ fn ask(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     }
 }
 
+/// View the last n asks.
 fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
 
     if (curr_game.*) |*game| {
-        _ = game;
-        const num_last = try std.fmt.parseInt(u8, command_list.items[1], 10);
-        _ = num_last;
-        try stdout.writer().print("TODO: implement\n", .{});
+        var num_last: u8 = 3;
+        if (command_list.items.len >= 2) {
+            num_last = try std.fmt.parseInt(u8, command_list.items[1], 10);
+        }
+        var i = game.history.items.len - 1;
+        while (i + num_last >= game.history.items.len) {
+            const history_record = game.history.items[i];
+            try stdout.writer().print("{any}\n", .{history_record});
+            if (i == 0) { // otherwise integer overflow error since i is unsigned
+                break;
+            }
+            i -= 1;
+        }
     } else {
         try stdout.writer().print("{s}\n", .{NO_GAME_TEXT});
     }
@@ -192,8 +202,16 @@ pub fn main() !void {
         const command = command_list.items[0];
 
         if (std.mem.eql(u8, command, "exit") or std.mem.eql(u8, command, "quit")) {
-            // TODO: ask for confirmation if game is in progress
-            // TODO: clean up memory properly
+            // ask for confirmation if game is in progress
+            if (curr_game != null) {
+                try stdout.writer().print("A game is currently in progress. Are you sure you want to {s}? [y/N] ", .{command});
+                const confirm = (try nextLine(stdin.reader(), &command_buffer)).?;
+                if (!std.mem.eql(u8, confirm, "y")) {
+                    continue;
+                } else {
+                    try end(&curr_game);
+                }
+            }
             is_exit = true;
             try stdout.writer().print("{s}\n", .{EXIT_TEXT});
         } else if (std.mem.eql(u8, command, "help")) {

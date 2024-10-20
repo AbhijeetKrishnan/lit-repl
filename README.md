@@ -1,16 +1,20 @@
 # REPL for Infinite!Lit
 
-A Zig-based command-line tool to play the card game [Lit](https://www.pagat.com/quartet/literature.html) (also called Literature or Canadian Fish) while viewing the board state and possibility space at each turn.
+A Zig-based command-line tool to play the card game [Lit](https://www.pagat.com/quartet/literature.html) (also called
+Literature or Canadian Fish) while viewing the board state and possibility space at each turn.
 
 ![Zig](https://img.shields.io/badge/Zig-%23F7A41D.svg?style=for-the-badge&logo=zig&logoColor=white)
 
 ## Motivation
 
-I found playing Lit fun, and wanted to devise an optimal strategy. However, it requires modeling human memory accurately, which is probably out of scope. Assuming an agent has access to infinite memory to remember all questions asked so far, and model the other players' hands as richly as they want, what would the optimal strategy look like _then_? This variant is what I have dubbed "Infinite!Lit".
+I found playing Lit fun, and wanted to devise an optimal strategy. However, it requires modeling human memory
+accurately, which is probably out of scope. Assuming an agent has access to infinite memory to remember all questions
+asked so far, and model the other players' hands as richly as they want, what would the optimal strategy look like
+_then_? This variant is what I have dubbed "Infinite!Lit".
 
 ## Installation
 
-_Written using Zig v.0.11.0_
+_Written using Zig v.0.13.0_
 
 ```bash
 $ git clone git@github.com:AbhijeetKrishnan/lit-repl
@@ -26,13 +30,15 @@ zig test src/main.zig
 
 ## Usage
 
-Infinite!Lit is implemented as an interpreter which allows you to run commands to start a new game of Lit, ask for cards, and claim hands. You can also view the game state at any time, including the list of possibilities for cards that other players might have.
+Infinite!Lit is implemented as an interpreter which allows you to run commands to start a new game of Lit, ask for
+cards, and claim hands. You can also view the game state at any time, including the list of possibilities for cards that
+other players might have.
 
 Start the program with -
 
 ```bash
 $ zig build run
-Welcome to the Infinite!Lit REPL v0.0.1.
+Welcome to the Infinite!Lit REPL v0.1.0.
 Type "help" for more information, "init" to start a new game, or "exit" to close the program.
 ```
 
@@ -45,7 +51,7 @@ lit 0*>
 
 The `0*` indicates that it is Player 0's turn to play.
 
-To view the current game state -
+To view the current game state (from a global POV) -
 ```bash
 lit> show
 ID: 0
@@ -129,12 +135,12 @@ Cards are represented using a string that is matched by the regex `(?<val>[02-9j
 | King | `k` |
 | Ace | `a` |
 
-To view the last $n$ asks -
+To view the last $n$ asks (default $n = 3$) -
 ```bash
-lit 0*> last 2
-2. Player 0 asked Player 1 for card ♦3
-1. Player 1 asked Player 0 for card ♦2
-lit 0*> 
+lit 3*> last 2
+Player 0 unsucessfully asked Player 3 for card ♠K
+Player 0 successfully asked Player 1 for card ♥K
+lit 3*> 
 ```
 
 To claim a set - (TODO:)
@@ -147,4 +153,12 @@ To terminate a game -
 lit 0*> end
 Game terminated.
 lit> 
+```
+
+## Development
+
+To run all tests -
+
+```bash
+zig test src/main.zig
 ```

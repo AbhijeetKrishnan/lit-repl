@@ -142,11 +142,14 @@ pub const Card = struct {
         try expect(card.rank == Rank.Two);
     }
 
+    /// Get the half of a card (low or high)
+    pub fn get_half_suit(self: Card) Half {
+        return if (@intFromEnum(self.rank) <= @intFromEnum(Rank.Seven)) Half.Low else Half.High;
+    }
+
+    /// Check if card is in a particular half-suit
     pub fn in_half_suit(self: Card, half: Half, suit: Suit) bool {
-        return switch (half) {
-            Half.Low => self.rank <= Rank.Seven,
-            Half.High => self.rank > Rank.Seven,
-        } and self.suit == suit;
+        return self.get_half_suit() == half and self.suit == suit;
     }
 };
 
@@ -296,6 +299,37 @@ test "deal cards" {
     defer hands.deinit();
 }
 
+/// Check if deck contains a card from the same half-suit as another card
+fn halfSuitExists(hand: []const Card, card: Card) bool {
+    const half = card.get_half_suit();
+    const suit = card.suit;
+    for (hand) |c| {
+        if (c.in_half_suit(half, suit)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// A record of a game actions
+pub const HistoryRecord = struct {
+    asker: *Player,
+    askee: *Player,
+    card: Card,
+    success: bool,
+
+    pub fn format(self: HistoryRecord, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+
+        try writer.print("Player {d} {s} asked Player {d} for card {any}", .{ self.asker.id, if (self.success) "successfully" else "unsucessfully", self.askee.id, self.card });
+    }
+
+    pub fn init(asker: *Player, askee: *Player, card: Card, success: bool) HistoryRecord {
+        return HistoryRecord{ .asker = asker, .askee = askee, .card = card, .success = success };
+    }
+};
+
 pub const GameError = error{ PlayerIndexOutOfBounds, AskingSelfTeam, AskingFromEmpty, HalfSuitAbsent, PartialHalfSetClaimed };
 
 pub const Game = struct {
@@ -304,6 +338,7 @@ pub const Game = struct {
     odd_sets: u8 = 0, // count of odd team sets
     even_sets: u8 = 0, // count of even team sets
     current_player: *Player, // current player
+    history: std.ArrayList(HistoryRecord), // history of game actions
 
     pub fn format(self: Game, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
@@ -326,6 +361,7 @@ pub const Game = struct {
         game.odd_sets = 0;
         game.even_sets = 0;
         game.current_player = &game.players.items[0]; // game starts with player 0
+        game.history = std.ArrayList(HistoryRecord).init(allocator);
         return game;
     }
 
@@ -334,6 +370,7 @@ pub const Game = struct {
             player.hand.deinit();
         }
         self.players.deinit();
+        self.history.deinit();
     }
 
     test "display a game" {
@@ -354,17 +391,16 @@ pub const Game = struct {
     }
 
     /// Ask a player for a card
-    /// Returns true if the card was found and performs the transfer between
-    /// players
-    /// Returns false if the card was not found and passes the turn to the asked
-    /// player
+    /// Returns true if the card was found and performs the transfer between players
+    /// Returns false if the card was not found and passes the turn to the asked player
     pub fn ask(self: *Game, asked_player: *Player, asked_card: Card) !bool {
         var asking_player = self.current_player;
         if (!(asking_player.team != asked_player.team))
             return GameError.AskingSelfTeam;
         if (asked_player.hand.items.len <= 0)
             return GameError.AskingFromEmpty;
-        // TODO: handle check for half-suit of card being asked being present in asking player's hand
+        if (!halfSuitExists(asking_player.hand.items, asked_card))
+            return GameError.HalfSuitAbsent;
         var found: bool = false;
         var found_idx: usize = undefined;
         for (0..asked_player.hand.items.len) |i| {
@@ -380,6 +416,7 @@ pub const Game = struct {
         } else {
             self.current_player = asked_player;
         }
+        try self.history.append(HistoryRecord.init(asking_player, asked_player, asked_card, found));
         return found;
     }
 
