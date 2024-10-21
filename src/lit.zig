@@ -7,7 +7,12 @@ pub const Suit = enum(u8) {
     Hearts,
     Spades,
 
-    pub fn format(self: Suit, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(
+        self: Suit,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
         _ = fmt;
         _ = options;
 
@@ -45,7 +50,12 @@ const Rank = enum(u8) {
     King,
     Ace,
 
-    pub fn format(self: Rank, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(
+        self: Rank,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
         _ = fmt;
         _ = options;
 
@@ -95,7 +105,8 @@ const Rank = enum(u8) {
             '2', '3', '4', '5', '6', '7', '9', '0', 'j', 'J', 'q', 'Q', 'k', 'K', 'a', 'A',
         };
         const expected = [_]Rank{
-            Rank.Two, Rank.Three, Rank.Four, Rank.Five, Rank.Six, Rank.Seven, Rank.Nine, Rank.Ten, Rank.Jack, Rank.Jack, Rank.Queen, Rank.Queen, Rank.King, Rank.King, Rank.Ace, Rank.Ace,
+            Rank.Two,  Rank.Three, Rank.Four,  Rank.Five, Rank.Six,  Rank.Seven, Rank.Nine, Rank.Ten, Rank.Jack,
+            Rank.Jack, Rank.Queen, Rank.Queen, Rank.King, Rank.King, Rank.Ace,   Rank.Ace,
         };
         for (tests, expected) |t, e| {
             rank = try Rank.parseRank(&[_]u8{t});
@@ -110,11 +121,19 @@ pub const Card = struct {
     suit: Suit,
     rank: Rank,
 
-    pub fn format(self: Card, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(
+        self: Card,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
         _ = fmt;
         _ = options;
 
-        try writer.print("{}{}", .{ self.suit, self.rank }); // TODO: investigate using the unicode versions of each card https://en.wikipedia.org/wiki/Playing_cards_in_Unicode#Playing_cards_deck
+        try writer.print("{}{}", .{
+            self.suit,
+            self.rank,
+        }); // TODO: investigate using the unicode versions of each card https://en.wikipedia.org/wiki/Playing_cards_in_Unicode#Playing_cards_deck
     }
 
     pub fn parseCard(card: []const u8) !Card {
@@ -132,7 +151,10 @@ pub const Card = struct {
             else => return undefined,
         }
 
-        return Card{ .suit = suit, .rank = rank };
+        return Card{
+            .suit = suit,
+            .rank = rank,
+        };
     }
 
     test "parse a card" {
@@ -148,7 +170,11 @@ pub const Card = struct {
     }
 
     /// Check if card is in a particular half-suit
-    fn in_half_suit(self: Card, half: Half, suit: Suit) bool {
+    fn in_half_suit(
+        self: Card,
+        half: Half,
+        suit: Suit,
+    ) bool {
         return self.get_half_suit() == half and self.suit == suit;
     }
 };
@@ -160,11 +186,22 @@ pub const Card = struct {
 ///   - cards_str: a string of comma-separated cards
 /// - Returns:
 ///   - an `ArrayList` of `Card` objects if parsing is successful, otherwise a `GameError.MalformedClaim` error
-fn parse_cards_list(allocator: std.mem.Allocator, cards_str: []const u8) !std.ArrayList(Card) {
+fn parse_cards_list(
+    allocator: std.mem.Allocator,
+    cards_str: []const u8,
+) !std.ArrayList(Card) {
     var cards: std.ArrayList(Card) = std.ArrayList(Card).init(allocator);
-    var splits = std.mem.splitSequence(u8, cards_str, ",");
+    var splits = std.mem.splitSequence(
+        u8,
+        cards_str,
+        ",",
+    );
     while (splits.next()) |card_str| {
-        const trimmed_card_str = std.mem.trim(u8, card_str, " ");
+        const trimmed_card_str = std.mem.trim(
+            u8,
+            card_str,
+            " ",
+        );
         const card = try Card.parseCard(trimmed_card_str);
         try cards.append(card);
     }
@@ -174,7 +211,10 @@ fn parse_cards_list(allocator: std.mem.Allocator, cards_str: []const u8) !std.Ar
 test "parse a list of cards" {
     const allocator = std.testing.allocator;
     const cards_str = "2C, 3D, 4H, 5S";
-    const cards: std.ArrayList(Card) = try parse_cards_list(allocator, cards_str);
+    const cards: std.ArrayList(Card) = try parse_cards_list(
+        allocator,
+        cards_str,
+    );
     defer cards.deinit();
     std.debug.print("{any}\n", .{cards});
     try expect(cards.items.len == 4);
@@ -215,7 +255,12 @@ const Player = struct {
         self.hand.deinit();
     }
 
-    pub fn format(self: Player, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(
+        self: Player,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
         _ = fmt;
         _ = options;
 
@@ -227,7 +272,10 @@ const Player = struct {
 
     test "display players" {
         const allocator = std.testing.allocator;
-        var players: std.ArrayList(Player) = try Player.initPlayers(allocator, PlayerCount.SIX);
+        var players: std.ArrayList(Player) = try Player.initPlayers(
+            allocator,
+            PlayerCount.SIX,
+        );
         defer players.deinit();
         for (players.items) |player| {
             std.debug.print("{any}\n", .{player});
@@ -239,8 +287,14 @@ const Player = struct {
 
     /// Initialize the set of players for the game
     /// Randomly deal a hand to each player
-    fn initPlayers(allocator: std.mem.Allocator, num_players: PlayerCount) !std.ArrayList(Player) {
-        var players: std.ArrayList(Player) = try std.ArrayList(Player).initCapacity(allocator, @intFromEnum(num_players));
+    fn initPlayers(
+        allocator: std.mem.Allocator,
+        num_players: PlayerCount,
+    ) !std.ArrayList(Player) {
+        var players: std.ArrayList(Player) = try std.ArrayList(Player).initCapacity(
+            allocator,
+            @intFromEnum(num_players),
+        );
         for (0..@intFromEnum(num_players)) |i| {
             try players.append(Player{
                 .id = i,
@@ -249,7 +303,11 @@ const Player = struct {
                 .possibilities = undefined, // TODO: initialize possibilities to Unknown
             });
         }
-        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(allocator, num_players, null);
+        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(
+            allocator,
+            num_players,
+            null,
+        );
         defer hands.deinit();
         for (0..@intFromEnum(num_players)) |i| {
             players.items[i].hand = hands.items[i];
@@ -264,7 +322,10 @@ fn generateDeck() [48]Card {
     var ptr: u8 = 0;
     for (std.enums.values(Suit)) |suit| {
         for (std.enums.values(Rank)) |rank| {
-            deck[ptr] = Card{ .suit = suit, .rank = rank };
+            deck[ptr] = Card{
+                .suit = suit,
+                .rank = rank,
+            };
             ptr += 1;
         }
     }
@@ -278,7 +339,11 @@ test "generate a deck" {
 }
 
 /// Deal cards to each player randomly
-fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(Card)) {
+fn dealCards(
+    allocator: std.mem.Allocator,
+    num_players: PlayerCount,
+    seed: ?u64,
+) !std.ArrayList(std.ArrayList(Card)) {
     var deck: [48]Card = comptime generateDeck();
     var true_seed: u64 = undefined;
 
@@ -293,7 +358,10 @@ fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64)
 
     rand.shuffle(Card, &deck);
 
-    var hands: std.ArrayList(std.ArrayList(Card)) = try std.ArrayList(std.ArrayList(Card)).initCapacity(allocator, @intFromEnum(num_players));
+    var hands = try std.ArrayList(std.ArrayList(Card)).initCapacity(
+        allocator,
+        @intFromEnum(num_players),
+    );
     const hand_size: u8 = 48 / @intFromEnum(num_players);
     for (0..@intFromEnum(num_players)) |i| {
         var hand = std.ArrayList(Card).init(allocator);
@@ -307,7 +375,11 @@ fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64)
 
 test "deal cards" {
     const allocator = std.testing.allocator;
-    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(allocator, PlayerCount.SIX, 0);
+    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(
+        allocator,
+        PlayerCount.SIX,
+        0,
+    );
 
     std.debug.print("0: {any}\n", .{hands.items[0].items});
     std.debug.print("1: {any}\n", .{hands.items[1].items});
@@ -328,7 +400,10 @@ test "deal cards" {
 }
 
 /// Check if deck contains a card from the same half-suit as another card
-fn halfSuitExists(hand: []const Card, card: Card) bool {
+fn halfSuitExists(
+    hand: []const Card,
+    card: Card,
+) bool {
     const half = card.get_half_suit();
     const suit = card.suit;
     for (hand) |c| {
@@ -346,19 +421,51 @@ pub const HistoryRecord = struct {
     card: Card,
     success: bool,
 
-    pub fn format(self: HistoryRecord, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(
+        self: HistoryRecord,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
         _ = fmt;
         _ = options;
 
-        try writer.print("Player {d} {s} asked Player {d} for card {any}", .{ self.asker.id, if (self.success) "successfully" else "unsucessfully", self.askee.id, self.card });
+        try writer.print(
+            "Player {d} {s} asked Player {d} for card {any}",
+            .{
+                self.asker.id,
+                if (self.success) "successfully" else "unsucessfully",
+                self.askee.id,
+                self.card,
+            },
+        );
     }
 
-    pub fn init(asker: *Player, askee: *Player, card: Card, success: bool) HistoryRecord {
-        return HistoryRecord{ .asker = asker, .askee = askee, .card = card, .success = success };
+    pub fn init(
+        asker: *Player,
+        askee: *Player,
+        card: Card,
+        success: bool,
+    ) HistoryRecord {
+        return HistoryRecord{
+            .asker = asker,
+            .askee = askee,
+            .card = card,
+            .success = success,
+        };
     }
 };
 
-pub const GameError = error{ PlayerIndexOutOfBounds, AskingSelfTeam, AskingFromEmpty, HalfSuitAbsent, PartialHalfSetClaimed, MalformedClaim, CurrentPlayerMustClaim };
+pub const GameError = error{
+    PlayerIndexOutOfBounds,
+    AskingSelfTeam,
+    AskingFromEmpty,
+    HalfSuitAbsent,
+    PartialHalfSetClaimed,
+    MalformedClaim,
+    CurrentPlayerMustClaim,
+    NoValidPlayers,
+};
 
 pub const ClaimOutcome = enum(u8) {
     Success,
@@ -374,7 +481,12 @@ pub const Game = struct {
     current_player: *Player, // current player
     history: std.ArrayList(HistoryRecord), // history of game actions
 
-    pub fn format(self: Game, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(
+        self: Game,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
         _ = fmt;
         _ = options;
 
@@ -388,7 +500,10 @@ pub const Game = struct {
     }
 
     /// Initialize a new game
-    pub fn init(allocator: std.mem.Allocator, num_players: PlayerCount) !Game {
+    pub fn init(
+        allocator: std.mem.Allocator,
+        num_players: PlayerCount,
+    ) !Game {
         var game: Game = undefined;
         game.num_players = num_players;
         game.players = try Player.initPlayers(allocator, num_players);
@@ -409,7 +524,10 @@ pub const Game = struct {
 
     test "display a game" {
         const allocator = std.testing.allocator;
-        var game: Game = try Game.init(allocator, PlayerCount.SIX);
+        var game: Game = try Game.init(
+            allocator,
+            PlayerCount.SIX,
+        );
         std.debug.print("{}\n", .{game});
         defer game.deinit() catch |err| {
             std.debug.print("Error: {any}\n", .{err});
@@ -428,13 +546,20 @@ pub const Game = struct {
     /// - Returns:
     ///     true if the card was found and performs the transfer between players
     ///     false if the card was not found and passes the turn to the asked player
-    pub fn ask(self: *Game, asked_player: *Player, asked_card: Card) !bool {
+    pub fn ask(
+        self: *Game,
+        asked_player: *Player,
+        asked_card: Card,
+    ) !bool {
         var asking_player = self.current_player;
         if (!(asking_player.team != asked_player.team))
             return GameError.AskingSelfTeam;
         if (asked_player.hand.items.len <= 0)
             return GameError.AskingFromEmpty;
-        if (!halfSuitExists(asking_player.hand.items, asked_card))
+        if (!halfSuitExists(
+            asking_player.hand.items,
+            asked_card,
+        ))
             return GameError.HalfSuitAbsent;
         var found: bool = false;
         var found_idx: usize = undefined;
@@ -451,13 +576,26 @@ pub const Game = struct {
         } else {
             self.current_player = asked_player;
         }
-        try self.history.append(HistoryRecord.init(asking_player, asked_player, asked_card, found));
+        try self.history.append(HistoryRecord.init(
+            asking_player,
+            asked_player,
+            asked_card,
+            found,
+        ));
         return found;
     }
 
     /// Helper function to build a list of claims given a list of string-based claims from a player
-    pub fn build_claims_list(self: *const Game, allocator: std.mem.Allocator, claiming_player: *const Player, claims_strs: []const []const u8) !std.ArrayList(std.ArrayList(Card)) {
-        var claims_list: std.ArrayList(std.ArrayList(Card)) = try std.ArrayList(std.ArrayList(Card)).initCapacity(allocator, @intFromEnum(self.num_players) / 2);
+    pub fn build_claims_list(
+        self: *const Game,
+        allocator: std.mem.Allocator,
+        claiming_player: *const Player,
+        claims_strs: []const []const u8,
+    ) !std.ArrayList(std.ArrayList(Card)) {
+        var claims_list = try std.ArrayList(std.ArrayList(Card)).initCapacity(
+            allocator,
+            @intFromEnum(self.num_players) / 2,
+        );
         for (claims_list.capacity) |_| {
             try claims_list.append(undefined);
         }
@@ -473,7 +611,8 @@ pub const Game = struct {
                 player_id = item[0] - '0';
                 card_list = try parse_cards_list(allocator, item[2..]);
             } else {
-                // '=' not present, player ID is that of claiming player, and entire string is list of comma-separated cards
+                // '=' not present, player ID is that of claiming player, and entire string is list of comma-separated
+                // cards
                 player_id = claiming_player.id;
                 card_list = try parse_cards_list(allocator, item);
             }
@@ -494,14 +633,30 @@ pub const Game = struct {
     test "build claims list" {
         try expect(@intFromEnum(PlayerCount.SIX) == 6);
         const allocator = std.testing.allocator;
-        const game = Game{ .players = undefined, .num_players = PlayerCount.SIX, .odd_sets = 0, .even_sets = 0, .current_player = undefined, .history = undefined };
-        const player = Player{ .id = 0, .team = false, .hand = undefined, .possibilities = undefined };
+        const game = Game{
+            .players = undefined,
+            .num_players = PlayerCount.SIX,
+            .odd_sets = 0,
+            .even_sets = 0,
+            .current_player = undefined,
+            .history = undefined,
+        };
+        const player = Player{
+            .id = 0,
+            .team = false,
+            .hand = undefined,
+            .possibilities = undefined,
+        };
         const claims_strs = [_][]const u8{
             "4=2C, 3D, 4H,5S ",
             "2C, 3D,4H, 5S",
             "2=3D,4H, 5S",
         };
-        const claims_list: std.ArrayList(std.ArrayList(Card)) = try game.build_claims_list(allocator, &player, &claims_strs);
+        const claims_list = try game.build_claims_list(
+            allocator,
+            &player,
+            &claims_strs,
+        );
         defer claims_list.deinit();
         for (claims_list.items) |claim| {
             std.debug.print("{any}\n", .{claim});
@@ -510,7 +665,13 @@ pub const Game = struct {
     }
 
     /// Check whether the claim for a suit is valid
-    pub fn check_claim(self: *const Game, claiming_player: *const Player, half: Half, suit: Suit, claims: std.ArrayList(std.ArrayList(Card))) !ClaimOutcome {
+    pub fn check_claim(
+        self: *const Game,
+        claiming_player: *const Player,
+        half: Half,
+        suit: Suit,
+        claims: std.ArrayList(std.ArrayList(Card)),
+    ) !ClaimOutcome {
         if (claiming_player.id != self.current_player.id) {
             return GameError.CurrentPlayerMustClaim;
         }
@@ -567,7 +728,13 @@ pub const Game = struct {
     }
 
     /// Given a claim, execute it
-    pub fn execute_claim(self: *Game, claiming_player: *Player, half: Half, suit: Suit, outcome: ClaimOutcome) !void {
+    pub fn execute_claim(
+        self: *Game,
+        claiming_player: *Player,
+        half: Half,
+        suit: Suit,
+        outcome: ClaimOutcome,
+    ) !void {
         // for each player, remove cards of the claimed set from their hand
         for (self.players.items) |*player| {
             if (player.team != claiming_player.team) {
@@ -597,5 +764,30 @@ pub const Game = struct {
             }
         }
         // if claim was partially successful (all cards of half set present, but wrong distribution claimed), do nothing
+    }
+
+    /// Determine turn after a claim
+    pub fn next_turn(self: *Game) !void {
+        // if possible to continue, turn stays with valid player on same team
+        // assume turn stays with same player if possible, otherwise moves to next highest ID player on team until
+        // a player with cards is found
+        for (0..(@intFromEnum(self.num_players) / 2)) |_| {
+            self.current_player = &self.players.items[(self.current_player.id + 2) % @intFromEnum(self.num_players)];
+            if (self.current_player.hand.items.len > 0) {
+                return;
+            }
+        }
+
+        // if no players with cards are found, turn goes to a valid player on the other team
+        self.current_player = &self.players.items[(self.current_player.id + 1) % @intFromEnum(self.num_players)];
+        for (0..(@intFromEnum(self.num_players) / 2)) |_| {
+            self.current_player = &self.players.items[(self.current_player.id + 1) % @intFromEnum(self.num_players)];
+            if (self.current_player.hand.items.len > 0) {
+                return;
+            }
+        }
+
+        // if no players with cards are found, raise exception
+        return GameError.NoValidPlayers;
     }
 };

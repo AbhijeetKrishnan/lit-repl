@@ -9,15 +9,26 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     )) orelse return null;
     // trim annoying windows-only carriage return character
     if (@import("builtin").os.tag == .windows) {
-        return std.mem.trimRight(u8, line, "\r");
+        return std.mem.trimRight(
+            u8,
+            line,
+            "\r",
+        );
     } else {
         return line;
     }
 }
 
-fn splitCommand(allocator: std.mem.Allocator, input: []const u8) !std.ArrayList([]const u8) {
-    var splits = std.mem.splitSequence(u8, input, " ");
-    var split_list: std.ArrayList([]const u8) = std.ArrayList([]const u8).init(allocator);
+fn splitCommand(
+    allocator: std.mem.Allocator,
+    input: []const u8,
+) !std.ArrayList([]const u8) {
+    var splits = std.mem.splitSequence(
+        u8,
+        input,
+        " ",
+    );
+    var split_list = std.ArrayList([]const u8).init(allocator);
     while (splits.next()) |chunk| {
         try split_list.append(chunk);
     }
@@ -39,7 +50,10 @@ test "split a command" {
 fn printPrompt(curr_game: ?lit.Game) !void {
     const stdout = std.io.getStdOut();
     if (curr_game) |game| {
-        try stdout.writer().print("lit {}*> ", .{game.current_player.id});
+        try stdout.writer().print(
+            "lit {}*> ",
+            .{game.current_player.id},
+        );
     } else {
         try stdout.writer().print("lit> ", .{});
     }
@@ -75,57 +89,108 @@ const NO_GAME_TEXT =
 
 fn help() !void {
     const stdout = std.io.getStdOut();
-    try stdout.writer().print("{s}\n", .{HELP_TEXT});
+    try stdout.writer().print(
+        "{s}\n",
+        .{HELP_TEXT},
+    );
 }
 
-fn init(allocator: std.mem.Allocator, curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
+fn init(
+    allocator: std.mem.Allocator,
+    curr_game: *?lit.Game,
+    command_list: *std.ArrayList([]const u8),
+) !void {
     const stdout = std.io.getStdOut();
 
     if (curr_game.*) |_| {
-        try stdout.writer().print("A game is already in progress. Please \"end\" it before starting a new one.\n", .{});
+        try stdout.writer().print(
+            "A game is already in progress. Please \"end\" it before starting a new one.\n",
+            .{},
+        );
     } else {
         const num_players: lit.PlayerCount = switch (command_list.items.len) {
             1 => lit.PlayerCount.SIX,
             else => blk: {
-                const input_player_count = try std.fmt.parseInt(u8, command_list.items[1], 10);
+                const input_player_count = try std.fmt.parseInt(
+                    u8,
+                    command_list.items[1],
+                    10,
+                );
                 break :blk try lit.PlayerCount.intToEnum(input_player_count);
             },
         };
         curr_game.* = try lit.Game.init(allocator, num_players);
-        try stdout.writer().print("Initialized a new game with {d} players.\n", .{@intFromEnum(num_players)});
+        try stdout.writer().print(
+            "Initialized a new game with {d} players.\n",
+            .{
+                @intFromEnum(num_players),
+            },
+        );
     }
 }
 
-fn ask(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
+fn ask(
+    curr_game: *?lit.Game,
+    command_list: *std.ArrayList([]const u8),
+) !void {
     const stdout = std.io.getStdOut();
 
     const player_id = try std.fmt.parseInt(u8, command_list.items[1], 10);
     const card = try lit.Card.parseCard(command_list.items[2]);
 
     if (curr_game.*) |*game| {
-        std.debug.print("{} asking player {d} for card {}.\n", .{ game.current_player.id, player_id, card });
+        std.debug.print(
+            "{} asking player {d} for card {}.\n",
+            .{
+                game.current_player.id,
+                player_id,
+                card,
+            },
+        );
         const asked_player = try game.getPlayer(player_id);
         const success = game.ask(asked_player, card) catch |err| {
             switch (err) {
                 lit.GameError.AskingSelfTeam => {
-                    try stdout.writer().print("Illegal ask: Asker ({}) and askee ({}) are on the same team.\n", .{ player_id, asked_player.id });
+                    try stdout.writer().print(
+                        "Illegal ask: Asker ({}) and askee ({}) are on the same team.\n",
+                        .{ player_id, asked_player.id },
+                    );
                 },
                 lit.GameError.AskingFromEmpty => {
-                    try stdout.writer().print("Illegal ask: Askee's ({}) hand is empty.\n", .{asked_player.id});
+                    try stdout.writer().print(
+                        "Illegal ask: Askee's ({}) hand is empty.\n",
+                        .{asked_player.id},
+                    );
                 },
                 lit.GameError.HalfSuitAbsent => {
-                    try stdout.writer().print("Illegal ask: Asker ({}) does not possess card of same half-suit.\n", .{player_id});
+                    try stdout.writer().print(
+                        "Illegal ask: Asker ({}) does not possess card of same half-suit.\n",
+                        .{player_id},
+                    );
                 },
                 else => {
-                    try stdout.writer().print("An error occurred: {}\n", .{err});
+                    try stdout.writer().print(
+                        "An error occurred: {}\n",
+                        .{err},
+                    );
                 },
             }
             return;
         };
         if (success) {
-            try stdout.writer().print("Yes. Player {} receives card {} from Player {d}.\n", .{ game.current_player.id, card, asked_player.id });
+            try stdout.writer().print(
+                "Yes. Player {} receives card {} from Player {d}.\n",
+                .{
+                    game.current_player.id,
+                    card,
+                    asked_player.id,
+                },
+            );
         } else {
-            try stdout.writer().print("No. Turn passes to Player {d}.\n", .{asked_player.id});
+            try stdout.writer().print(
+                "No. Turn passes to Player {d}.\n",
+                .{asked_player.id},
+            );
         }
     } else {
         try stdout.writer().print("{s}\n", .{NO_GAME_TEXT});
@@ -157,11 +222,19 @@ fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     }
 }
 
-fn claim(allocator: std.mem.Allocator, curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
+fn claim(
+    allocator: std.mem.Allocator,
+    curr_game: *?lit.Game,
+    command_list: *std.ArrayList([]const u8),
+) !void {
     const stdout = std.io.getStdOut();
 
     if (curr_game.*) |*game| {
-        const claims_list = try game.build_claims_list(allocator, game.current_player, command_list.items[1..]);
+        const claims_list = try game.build_claims_list(
+            allocator,
+            game.current_player,
+            command_list.items[1..],
+        );
         var half: lit.Half = undefined;
         var suit: lit.Suit = undefined;
         var found: bool = false;
@@ -180,21 +253,41 @@ fn claim(allocator: std.mem.Allocator, curr_game: *?lit.Game, command_list: *std
             }
         }
 
-        // TODO: can a player make a claim when they're not the current player?
-        const outcome = try game.check_claim(game.current_player, half, suit, claims_list);
+        const outcome = try game.check_claim(
+            game.current_player,
+            half,
+            suit,
+            claims_list,
+        );
         switch (outcome) {
             lit.ClaimOutcome.Success => {
-                try stdout.writer().print("Claim successful. Awarding Team {d} the set...\n", .{@intFromBool(game.current_player.team)});
+                try stdout.writer().print(
+                    "Claim successful. Awarding Team {d} the set...\n",
+                    .{@intFromBool(game.current_player.team)},
+                );
             },
             lit.ClaimOutcome.Failure => {
-                try stdout.writer().print("Claim failed. Awarding Team {d} the set...\n", .{@intFromBool(!game.current_player.team)});
+                try stdout.writer().print(
+                    "Claim failed. Awarding Team {d} the set...\n",
+                    .{
+                        @intFromBool(!game.current_player.team),
+                    },
+                );
             },
             lit.ClaimOutcome.Partial => {
-                try stdout.writer().print("Claim partially successful. No points awarded.\n", .{});
+                try stdout.writer().print(
+                    "Claim partially successful. No points awarded.\n",
+                    .{},
+                );
             },
         }
-        try game.execute_claim(game.current_player, half, suit, outcome);
-        // TODO: implement turn passing after claim execution
+        try game.execute_claim(
+            game.current_player,
+            half,
+            suit,
+            outcome,
+        );
+        try game.next_turn();
     } else {
         try stdout.writer().print("{s}\n", .{NO_GAME_TEXT});
     }
@@ -228,17 +321,29 @@ pub fn main() !void {
 
     while (!is_exit) {
         try printPrompt(curr_game);
-        const input = (try nextLine(stdin.reader(), &command_buffer)).?;
+        const input = (try nextLine(
+            stdin.reader(),
+            &command_buffer,
+        )).?;
 
-        var command_list = try splitCommand(allocator, input);
+        var command_list = try splitCommand(
+            allocator,
+            input,
+        );
         defer command_list.deinit();
         const command = command_list.items[0];
 
         if (std.mem.eql(u8, command, "exit") or std.mem.eql(u8, command, "quit")) {
             // ask for confirmation if game is in progress
             if (curr_game != null) {
-                try stdout.writer().print("A game is currently in progress. Are you sure you want to {s}? [y/N] ", .{command});
-                const confirm = (try nextLine(stdin.reader(), &command_buffer)).?;
+                try stdout.writer().print(
+                    "A game is currently in progress. Are you sure you want to {s}? [y/N] ",
+                    .{command},
+                );
+                const confirm = (try nextLine(
+                    stdin.reader(),
+                    &command_buffer,
+                )).?;
                 if (!std.mem.eql(u8, confirm, "y")) {
                     continue;
                 } else {
@@ -262,7 +367,10 @@ pub fn main() !void {
         } else if (std.mem.eql(u8, command, "end")) {
             try end(&curr_game);
         } else {
-            try stdout.writer().print("Unknown command \"{s}\". Please type \"help\" for a list of available commands.\n", .{command});
+            try stdout.writer().print(
+                "Unknown command \"{s}\". Please type \"help\" for a list of available commands.\n",
+                .{command},
+            );
         }
     }
 }
