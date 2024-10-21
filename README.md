@@ -143,10 +143,12 @@ Player 0 successfully asked Player 1 for card ♥K
 lit 3*> 
 ```
 
-To claim a set - (TODO:)
+To claim a set -
 ```bash
 lit 0*> claim 2c,3c 2=4c,7c,6c 4=5c
 ```
+
+A claim must be of the form `([0-8]=)?([02-9jqka][cdhs],)+([02-9jqka][cdhs])` i.e., a player ID followed by a comma-separated list of cards that the player is claimed to possess. If no ID is specified, the ID is assumed to be that of the player making the claim.
 
 To terminate a game -
 ```bash

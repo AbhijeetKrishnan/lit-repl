@@ -1,7 +1,7 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
-const Suit = enum(u8) {
+pub const Suit = enum(u8) {
     Clubs,
     Diamonds,
     Hearts,
@@ -148,12 +148,39 @@ pub const Card = struct {
     }
 
     /// Check if card is in a particular half-suit
-    pub fn in_half_suit(self: Card, half: Half, suit: Suit) bool {
+    fn in_half_suit(self: Card, half: Half, suit: Suit) bool {
         return self.get_half_suit() == half and self.suit == suit;
     }
 };
 
-const Half = enum(u8) {
+/// Converts a string of comma-separated cards into Card objects
+///
+/// - Parameters:
+///   - allocator: an allocator to use for memory allocation
+///   - cards_str: a string of comma-separated cards
+/// - Returns:
+///   - an `ArrayList` of `Card` objects if parsing is successful, otherwise a `GameError.MalformedClaim` error
+fn parse_cards_list(allocator: std.mem.Allocator, cards_str: []const u8) !std.ArrayList(Card) {
+    var cards: std.ArrayList(Card) = std.ArrayList(Card).init(allocator);
+    var splits = std.mem.splitSequence(u8, cards_str, ",");
+    while (splits.next()) |card_str| {
+        const trimmed_card_str = std.mem.trim(u8, card_str, " ");
+        const card = try Card.parseCard(trimmed_card_str);
+        try cards.append(card);
+    }
+    return cards;
+}
+
+test "parse a list of cards" {
+    const allocator = std.testing.allocator;
+    const cards_str = "2C, 3D, 4H, 5S";
+    const cards: std.ArrayList(Card) = try parse_cards_list(allocator, cards_str);
+    defer cards.deinit();
+    std.debug.print("{any}\n", .{cards});
+    try expect(cards.items.len == 4);
+}
+
+pub const Half = enum(u8) {
     Low,
     High,
 };
@@ -231,6 +258,7 @@ const Player = struct {
     }
 };
 
+/// Generate a deck of 48 cards (with eights removed)
 fn generateDeck() [48]Card {
     var deck: [48]Card = undefined;
     var ptr: u8 = 0;
@@ -249,7 +277,7 @@ test "generate a deck" {
     try expect(deck.len == 48);
 }
 
-/// Deal cards to each player
+/// Deal cards to each player randomly
 fn dealCards(allocator: std.mem.Allocator, num_players: PlayerCount, seed: ?u64) !std.ArrayList(std.ArrayList(Card)) {
     var deck: [48]Card = comptime generateDeck();
     var true_seed: u64 = undefined;
@@ -330,7 +358,13 @@ pub const HistoryRecord = struct {
     }
 };
 
-pub const GameError = error{ PlayerIndexOutOfBounds, AskingSelfTeam, AskingFromEmpty, HalfSuitAbsent, PartialHalfSetClaimed };
+pub const GameError = error{ PlayerIndexOutOfBounds, AskingSelfTeam, AskingFromEmpty, HalfSuitAbsent, PartialHalfSetClaimed, MalformedClaim, CurrentPlayerMustClaim };
+
+pub const ClaimOutcome = enum(u8) {
+    Success,
+    Partial,
+    Failure,
+};
 
 pub const Game = struct {
     players: std.ArrayList(Player),
@@ -391,8 +425,9 @@ pub const Game = struct {
     }
 
     /// Ask a player for a card
-    /// Returns true if the card was found and performs the transfer between players
-    /// Returns false if the card was not found and passes the turn to the asked player
+    /// - Returns:
+    ///     true if the card was found and performs the transfer between players
+    ///     false if the card was not found and passes the turn to the asked player
     pub fn ask(self: *Game, asked_player: *Player, asked_card: Card) !bool {
         var asking_player = self.current_player;
         if (!(asking_player.team != asked_player.team))
@@ -420,75 +455,140 @@ pub const Game = struct {
         return found;
     }
 
-    /// Check whether the claim for a suit is valid
-    pub fn check_claim(self: *Game, claiming_player: *Player, half: Half, suit: Suit, claims: [3]std.ArrayList(Card)) bool {
-        try expect(claiming_player.id == self.current_player.id);
-        _ = suit;
-        // TODO: check that half and suit lines up with claims
-        // TODO: ensure no duplicate claims
+    /// Helper function to build a list of claims given a list of string-based claims from a player
+    pub fn build_claims_list(self: *const Game, allocator: std.mem.Allocator, claiming_player: *const Player, claims_strs: []const []const u8) !std.ArrayList(std.ArrayList(Card)) {
+        var claims_list: std.ArrayList(std.ArrayList(Card)) = try std.ArrayList(std.ArrayList(Card)).initCapacity(allocator, @intFromEnum(self.num_players) / 2);
+        for (claims_list.capacity) |_| {
+            try claims_list.append(undefined);
+        }
+        for (claims_strs) |item| {
+            // check if claim string starts with a player ID followed by `=` and a list of cards
+            if (item.len < 2) {
+                return GameError.MalformedClaim;
+            }
+            var player_id: usize = undefined;
+            var card_list: std.ArrayList(Card) = undefined;
+            if (item[1] == '=') {
+                // '=' present, treat previous digit as player ID and subsequent string as list of comma-separated cards
+                player_id = item[0] - '0';
+                card_list = try parse_cards_list(allocator, item[2..]);
+            } else {
+                // '=' not present, player ID is that of claiming player, and entire string is list of comma-separated cards
+                player_id = claiming_player.id;
+                card_list = try parse_cards_list(allocator, item);
+            }
+            if (player_id < 0 or player_id >= @intFromEnum(self.num_players)) {
+                defer card_list.deinit();
+                defer claims_list.deinit();
+                return GameError.PlayerIndexOutOfBounds;
+            } else if (player_id % 2 != @intFromBool(claiming_player.team)) {
+                defer card_list.deinit();
+                defer claims_list.deinit();
+                return GameError.MalformedClaim;
+            }
+            claims_list.items[player_id / 2] = card_list;
+        }
+        return claims_list;
+    }
 
+    test "build claims list" {
+        try expect(@intFromEnum(PlayerCount.SIX) == 6);
+        const allocator = std.testing.allocator;
+        const game = Game{ .players = undefined, .num_players = PlayerCount.SIX, .odd_sets = 0, .even_sets = 0, .current_player = undefined, .history = undefined };
+        const player = Player{ .id = 0, .team = false, .hand = undefined, .possibilities = undefined };
+        const claims_strs = [_][]const u8{
+            "4=2C, 3D, 4H,5S ",
+            "2C, 3D,4H, 5S",
+            "2=3D,4H, 5S",
+        };
+        const claims_list: std.ArrayList(std.ArrayList(Card)) = try game.build_claims_list(allocator, &player, &claims_strs);
+        defer claims_list.deinit();
+        for (claims_list.items) |claim| {
+            std.debug.print("{any}\n", .{claim});
+            defer claim.deinit();
+        }
+    }
+
+    /// Check whether the claim for a suit is valid
+    pub fn check_claim(self: *const Game, claiming_player: *const Player, half: Half, suit: Suit, claims: std.ArrayList(std.ArrayList(Card))) !ClaimOutcome {
+        if (claiming_player.id != self.current_player.id) {
+            return GameError.CurrentPlayerMustClaim;
+        }
         var half_set: [6]bool = [_]bool{false} ** 6;
+        const offset: u8 = if (half == Half.Low) 0 else 6;
+
         // iterate over each player of team
-        for (claims.enumerate()) |item| {
-            const index = item.index;
-            const claim = item.value;
-            const player_idx = index * 2 + if (claiming_player.team) 1 else 0;
+        var all_claims_match: bool = true;
+        var index: u8 = 0;
+        for (claims.items) |claim| {
+            const player_idx = index * 2 + @intFromBool(claiming_player.team);
             const player = &self.players.items[player_idx];
 
             // each card in the claim must be in the player's hand
             for (claim.items) |card| {
+                // check that half and suit lines up with claim
+                if (!card.in_half_suit(half, suit)) {
+                    all_claims_match = false;
+                }
+
                 var found: bool = false;
                 for (player.hand.items) |hand_card| {
                     if (std.meta.eql(hand_card, card)) {
                         found = true;
-                        const rank_idx: u8 = @intFromEnum(card.rank) - if (half == Half.Low) 0 else 6;
+                        const rank_idx: u8 = @intFromEnum(card.rank) - offset;
                         half_set[rank_idx] = true;
                         break;
                     }
                 }
                 if (!found) {
                     // TODO: better way of communicating why claim failed?
-                    return false;
+                    all_claims_match = false;
                 }
             }
+            index += 1;
         }
 
         // check that the half set is complete
+        var half_set_complete: bool = true;
         for (half_set) |card| {
             if (!card) {
                 // TODO: better way of communicating why claim failed?
-                return false;
+                half_set_complete = false;
             }
         }
 
-        // TODO: how to check if team had the half set but claimed the wrong distribution? No points awarded in that case
-
-        return true;
+        if (all_claims_match and half_set_complete) {
+            return ClaimOutcome.Success;
+        } else if (half_set_complete) {
+            return ClaimOutcome.Partial;
+        } else {
+            return ClaimOutcome.Failure;
+        }
     }
 
     /// Given a claim, execute it
-    pub fn execute_claim(self: *Game, claiming_player: *Player, half: Half, suit: Suit, is_successful: bool) !void {
+    pub fn execute_claim(self: *Game, claiming_player: *Player, half: Half, suit: Suit, outcome: ClaimOutcome) !void {
         // for each player, remove cards of the claimed set from their hand
-        for (self.players) |player| {
+        for (self.players.items) |*player| {
             if (player.team != claiming_player.team) {
                 continue;
             }
-            for (player.hand.items) |card| {
+            for (0..player.hand.items.len) |card_idx| {
+                const card = player.hand.items[card_idx];
                 if (card.in_half_suit(half, suit)) {
-                    player.hand.swapRemove(card);
+                    _ = player.hand.swapRemove(card_idx);
                 }
             }
         }
 
-        // award team a point
-        if (is_successful) {
+        if (outcome == ClaimOutcome.Success) { // if claim was successful, award team a point
             // award the claiming team a point
             if (claiming_player.team) {
                 self.odd_sets += 1;
             } else {
                 self.even_sets += 1;
             }
-        } else {
+        } else if (outcome == ClaimOutcome.Failure) { // if claim was unsuccessful, award other team a point
             // award the other team a point
             if (claiming_player.team) {
                 self.even_sets += 1;
@@ -496,5 +596,6 @@ pub const Game = struct {
                 self.odd_sets += 1;
             }
         }
+        // if claim was partially successful (all cards of half set present, but wrong distribution claimed), do nothing
     }
 };

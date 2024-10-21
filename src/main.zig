@@ -137,9 +137,11 @@ fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
 
     if (curr_game.*) |*game| {
-        var num_last: u8 = 3;
+        var num_last: u8 = undefined;
         if (command_list.items.len >= 2) {
             num_last = try std.fmt.parseInt(u8, command_list.items[1], 10);
+        } else {
+            num_last = 3;
         }
         var i = game.history.items.len - 1;
         while (i + num_last >= game.history.items.len) {
@@ -155,13 +157,44 @@ fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     }
 }
 
-fn claim(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
-    _ = command_list;
+fn claim(allocator: std.mem.Allocator, curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
 
     if (curr_game.*) |*game| {
-        _ = game;
-        try stdout.writer().print("TODO: implement\n", .{});
+        const claims_list = try game.build_claims_list(allocator, game.current_player, command_list.items[1..]);
+        var half: lit.Half = undefined;
+        var suit: lit.Suit = undefined;
+        var found: bool = false;
+
+        // find the half-suit of the claim
+        // assume it is the first in the list
+        for (claims_list.items) |claim_list| {
+            for (claim_list.items) |curr_claim| {
+                half = curr_claim.get_half_suit();
+                suit = curr_claim.suit;
+                found = true;
+                break;
+            }
+            if (found) {
+                break;
+            }
+        }
+
+        // TODO: can a player make a claim when they're not the current player?
+        const outcome = try game.check_claim(game.current_player, half, suit, claims_list);
+        switch (outcome) {
+            lit.ClaimOutcome.Success => {
+                try stdout.writer().print("Claim successful. Awarding Team {d} the set...\n", .{@intFromBool(game.current_player.team)});
+            },
+            lit.ClaimOutcome.Failure => {
+                try stdout.writer().print("Claim failed. Awarding Team {d} the set...\n", .{@intFromBool(!game.current_player.team)});
+            },
+            lit.ClaimOutcome.Partial => {
+                try stdout.writer().print("Claim partially successful. No points awarded.\n", .{});
+            },
+        }
+        try game.execute_claim(game.current_player, half, suit, outcome);
+        // TODO: implement turn passing after claim execution
     } else {
         try stdout.writer().print("{s}\n", .{NO_GAME_TEXT});
     }
@@ -225,7 +258,7 @@ pub fn main() !void {
         } else if (std.mem.eql(u8, command, "show")) {
             try stdout.writer().print("{?}\n", .{curr_game});
         } else if (std.mem.eql(u8, command, "claim")) {
-            try claim(&curr_game, &command_list);
+            try claim(allocator, &curr_game, &command_list);
         } else if (std.mem.eql(u8, command, "end")) {
             try end(&curr_game);
         } else {
@@ -235,5 +268,7 @@ pub fn main() !void {
 }
 
 test {
-    std.testing.refAllDeclsRecursive(@This());
+    comptime {
+        std.testing.refAllDeclsRecursive(@This());
+    }
 }
