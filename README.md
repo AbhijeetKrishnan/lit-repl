@@ -147,6 +147,7 @@ To claim a set -
 ```bash
 lit 0*> claim 2c,3c 2=4c,7c,6c 4=5c
 ```
+TODO: update with `claim` implementation
 
 A claim must be of the form `([0-8]=)?([02-9jqka][cdhs],)+([02-9jqka][cdhs])` i.e., a player ID followed by a comma-separated list of cards that the player is claimed to possess. If no ID is specified, the ID is assumed to be that of the player making the claim.
 
@@ -162,5 +163,5 @@ lit>
 To run all tests -
 
 ```bash
-zig test src/main.zig
+zig build test
 ```

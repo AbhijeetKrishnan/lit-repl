@@ -1,418 +1,18 @@
 const std = @import("std");
+
+const _card = @import("card.zig");
+const Card = _card.Card;
+const Suit = _card.Suit;
+const Rank = _card.Rank;
+const Half = _card.Half;
+const halfSuitExists = _card.halfSuitExists;
+const parse_cards_list = _card.parse_cards_list;
+
+const _player = @import("player.zig");
+const Player = _player.Player;
+const PlayerCount = _player.PlayerCount;
+
 const expect = std.testing.expect;
-
-pub const Suit = enum(u8) {
-    Clubs,
-    Diamonds,
-    Hearts,
-    Spades,
-
-    pub fn format(
-        self: Suit,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-
-        switch (self) {
-            .Clubs => try writer.writeAll("♣"),
-            .Diamonds => try writer.writeAll("♦"),
-            .Hearts => try writer.writeAll("♥"),
-            .Spades => try writer.writeAll("♠"),
-        }
-    }
-
-    pub fn parseSuit(suit: []const u8) !Suit {
-        return switch (suit[0]) {
-            'c', 'C' => Suit.Clubs,
-            'd', 'D' => Suit.Diamonds,
-            'h', 'H' => Suit.Hearts,
-            's', 'S' => Suit.Spades,
-            else => undefined,
-        };
-    }
-};
-
-const Rank = enum(u8) {
-    Two,
-    Three,
-    Four,
-    Five,
-    Six,
-    Seven,
-    // Eight, eights are removed from the deck
-    Nine,
-    Ten,
-    Jack,
-    Queen,
-    King,
-    Ace,
-
-    pub fn format(
-        self: Rank,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-
-        switch (self) {
-            .Two => try writer.writeAll("2"),
-            .Three => try writer.writeAll("3"),
-            .Four => try writer.writeAll("4"),
-            .Five => try writer.writeAll("5"),
-            .Six => try writer.writeAll("6"),
-            .Seven => try writer.writeAll("7"),
-            .Nine => try writer.writeAll("9"),
-            .Ten => try writer.writeAll("10"),
-            .Jack => try writer.writeAll("J"),
-            .Queen => try writer.writeAll("Q"),
-            .King => try writer.writeAll("K"),
-            .Ace => try writer.writeAll("A"),
-        }
-    }
-
-    pub fn parseRank(rank: []const u8) !Rank {
-        return switch (rank[0]) {
-            '2' => Rank.Two,
-            '3' => Rank.Three,
-            '4' => Rank.Four,
-            '5' => Rank.Five,
-            '6' => Rank.Six,
-            '7' => Rank.Seven,
-            '9' => Rank.Nine,
-            '0' => Rank.Ten,
-            '1' => {
-                return switch (rank[1]) {
-                    '0' => Rank.Ten,
-                    else => undefined,
-                };
-            },
-            'j', 'J' => Rank.Jack,
-            'q', 'Q' => Rank.Queen,
-            'k', 'K' => Rank.King,
-            'a', 'A' => Rank.Ace,
-            else => undefined,
-        };
-    }
-
-    test "parse rank" {
-        var rank: Rank = undefined;
-        const tests = [_]u8{
-            '2', '3', '4', '5', '6', '7', '9', '0', 'j', 'J', 'q', 'Q', 'k', 'K', 'a', 'A',
-        };
-        const expected = [_]Rank{
-            Rank.Two,  Rank.Three, Rank.Four,  Rank.Five, Rank.Six,  Rank.Seven, Rank.Nine, Rank.Ten, Rank.Jack,
-            Rank.Jack, Rank.Queen, Rank.Queen, Rank.King, Rank.King, Rank.Ace,   Rank.Ace,
-        };
-        for (tests, expected) |t, e| {
-            rank = try Rank.parseRank(&[_]u8{t});
-            std.debug.print("{c}\n", .{t});
-            try expect(rank == e);
-        }
-        try expect(try Rank.parseRank("10") == Rank.Ten);
-    }
-};
-
-pub const Card = struct {
-    suit: Suit,
-    rank: Rank,
-
-    pub fn format(
-        self: Card,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-
-        try writer.print("{}{}", .{
-            self.suit,
-            self.rank,
-        }); // TODO: investigate using the unicode versions of each card https://en.wikipedia.org/wiki/Playing_cards_in_Unicode#Playing_cards_deck
-    }
-
-    pub fn parseCard(card: []const u8) !Card {
-        var rank: Rank = undefined;
-        var suit: Suit = undefined;
-        switch (card.len) {
-            2 => {
-                rank = try Rank.parseRank(card[0..1]);
-                suit = try Suit.parseSuit(card[1..2]);
-            },
-            3 => {
-                rank = try Rank.parseRank(card[0..2]);
-                suit = try Suit.parseSuit(card[2..3]);
-            },
-            else => return undefined,
-        }
-
-        return Card{
-            .suit = suit,
-            .rank = rank,
-        };
-    }
-
-    test "parse a card" {
-        const card: Card = try Card.parseCard("2C");
-        std.debug.print("{any}\n", .{card});
-        try expect(card.suit == Suit.Clubs);
-        try expect(card.rank == Rank.Two);
-    }
-
-    /// Get the half of a card (low or high)
-    pub fn get_half_suit(self: Card) Half {
-        return if (@intFromEnum(self.rank) <= @intFromEnum(Rank.Seven)) Half.Low else Half.High;
-    }
-
-    /// Check if card is in a particular half-suit
-    fn in_half_suit(
-        self: Card,
-        half: Half,
-        suit: Suit,
-    ) bool {
-        return self.get_half_suit() == half and self.suit == suit;
-    }
-};
-
-/// Converts a string of comma-separated cards into Card objects
-///
-/// - Parameters:
-///   - allocator: an allocator to use for memory allocation
-///   - cards_str: a string of comma-separated cards
-/// - Returns:
-///   - an `ArrayList` of `Card` objects if parsing is successful, otherwise a `GameError.MalformedClaim` error
-fn parse_cards_list(
-    allocator: std.mem.Allocator,
-    cards_str: []const u8,
-) !std.ArrayList(Card) {
-    var cards: std.ArrayList(Card) = std.ArrayList(Card).init(allocator);
-    var splits = std.mem.splitSequence(
-        u8,
-        cards_str,
-        ",",
-    );
-    while (splits.next()) |card_str| {
-        const trimmed_card_str = std.mem.trim(
-            u8,
-            card_str,
-            " ",
-        );
-        const card = try Card.parseCard(trimmed_card_str);
-        try cards.append(card);
-    }
-    return cards;
-}
-
-test "parse a list of cards" {
-    const allocator = std.testing.allocator;
-    const cards_str = "2C, 3D, 4H, 5S";
-    const cards: std.ArrayList(Card) = try parse_cards_list(
-        allocator,
-        cards_str,
-    );
-    defer cards.deinit();
-    std.debug.print("{any}\n", .{cards});
-    try expect(cards.items.len == 4);
-}
-
-pub const Half = enum(u8) {
-    Low,
-    High,
-};
-
-const Possibility = enum(u8) {
-    Unknown,
-    No,
-    Possible,
-    Yes,
-};
-
-pub const PlayerCount = enum(u8) {
-    SIX = 6,
-    EIGHT = 8,
-
-    pub fn intToEnum(i: u8) !PlayerCount {
-        switch (i) {
-            6 => return PlayerCount.SIX,
-            8 => return PlayerCount.EIGHT,
-            else => return undefined,
-        }
-    }
-};
-
-const Player = struct {
-    id: usize, // player ID, used as index into players array
-    team: bool, // false = even, true = odd
-    hand: std.ArrayList(Card),
-    possibilities: [48]Possibility, // 48 cards grouped into 8 sets of 6
-
-    pub fn deinit(self: *const Player) !void {
-        self.hand.deinit();
-    }
-
-    pub fn format(
-        self: Player,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-
-        try writer.print("ID: {}\n", .{self.id});
-        try writer.print("Team: {}\n", .{self.team});
-        try writer.print("Hand: {s}", .{self.hand.items});
-        // try writer.print("Possibilities: {any}\n", .{self.possibilities});
-    }
-
-    test "display players" {
-        const allocator = std.testing.allocator;
-        var players: std.ArrayList(Player) = try Player.initPlayers(
-            allocator,
-            PlayerCount.SIX,
-        );
-        defer players.deinit();
-        for (players.items) |player| {
-            std.debug.print("{any}\n", .{player});
-            defer player.deinit() catch |err| {
-                std.debug.print("Error: {any}\n", .{err});
-            };
-        }
-    }
-
-    /// Initialize the set of players for the game
-    /// Randomly deal a hand to each player
-    fn initPlayers(
-        allocator: std.mem.Allocator,
-        num_players: PlayerCount,
-    ) !std.ArrayList(Player) {
-        var players: std.ArrayList(Player) = try std.ArrayList(Player).initCapacity(
-            allocator,
-            @intFromEnum(num_players),
-        );
-        for (0..@intFromEnum(num_players)) |i| {
-            try players.append(Player{
-                .id = i,
-                .team = (i % 2 == 0),
-                .hand = undefined,
-                .possibilities = undefined, // TODO: initialize possibilities to Unknown
-            });
-        }
-        var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(
-            allocator,
-            num_players,
-            null,
-        );
-        defer hands.deinit();
-        for (0..@intFromEnum(num_players)) |i| {
-            players.items[i].hand = hands.items[i];
-        }
-        return players;
-    }
-};
-
-/// Generate a deck of 48 cards (with eights removed)
-fn generateDeck() [48]Card {
-    var deck: [48]Card = undefined;
-    var ptr: u8 = 0;
-    for (std.enums.values(Suit)) |suit| {
-        for (std.enums.values(Rank)) |rank| {
-            deck[ptr] = Card{
-                .suit = suit,
-                .rank = rank,
-            };
-            ptr += 1;
-        }
-    }
-    return deck;
-}
-
-test "generate a deck" {
-    const deck: [48]Card = generateDeck();
-    std.debug.print("{any}\n", .{deck});
-    try expect(deck.len == 48);
-}
-
-/// Deal cards to each player randomly
-fn dealCards(
-    allocator: std.mem.Allocator,
-    num_players: PlayerCount,
-    seed: ?u64,
-) !std.ArrayList(std.ArrayList(Card)) {
-    var deck: [48]Card = comptime generateDeck();
-    var true_seed: u64 = undefined;
-
-    if (seed) |s| {
-        true_seed = s;
-    } else {
-        try std.posix.getrandom(std.mem.asBytes(&true_seed));
-    }
-
-    var prng = std.rand.DefaultPrng.init(true_seed);
-    const rand = &prng.random();
-
-    rand.shuffle(Card, &deck);
-
-    var hands = try std.ArrayList(std.ArrayList(Card)).initCapacity(
-        allocator,
-        @intFromEnum(num_players),
-    );
-    const hand_size: u8 = 48 / @intFromEnum(num_players);
-    for (0..@intFromEnum(num_players)) |i| {
-        var hand = std.ArrayList(Card).init(allocator);
-        for (0..hand_size) |j| {
-            try hand.append(deck[i * hand_size + j]);
-        }
-        try hands.append(hand);
-    }
-    return hands;
-}
-
-test "deal cards" {
-    const allocator = std.testing.allocator;
-    var hands: std.ArrayList(std.ArrayList(Card)) = try dealCards(
-        allocator,
-        PlayerCount.SIX,
-        0,
-    );
-
-    std.debug.print("0: {any}\n", .{hands.items[0].items});
-    std.debug.print("1: {any}\n", .{hands.items[1].items});
-    std.debug.print("2: {any}\n", .{hands.items[2].items});
-    std.debug.print("3: {any}\n", .{hands.items[3].items});
-    std.debug.print("4: {any}\n", .{hands.items[4].items});
-    std.debug.print("5: {any}\n", .{hands.items[5].items});
-
-    try expect(hands.items.len == 6);
-    for (hands.items) |hand| {
-        try expect(hand.items.len == 8);
-    }
-
-    for (hands.items) |hand| {
-        defer hand.deinit();
-    }
-    defer hands.deinit();
-}
-
-/// Check if deck contains a card from the same half-suit as another card
-fn halfSuitExists(
-    hand: []const Card,
-    card: Card,
-) bool {
-    const half = card.get_half_suit();
-    const suit = card.suit;
-    for (hand) |c| {
-        if (c.in_half_suit(half, suit)) {
-            return true;
-        }
-    }
-    return false;
-}
 
 /// A record of a game actions
 pub const HistoryRecord = struct {
@@ -439,6 +39,11 @@ pub const HistoryRecord = struct {
                 self.card,
             },
         );
+    }
+
+    test "format a history record" {
+        std.debug.print("TODO: implement\n", {});
+        unreachable;
     }
 
     pub fn init(
@@ -499,6 +104,11 @@ pub const Game = struct {
         try writer.print("Current Player: {d}\n", .{self.current_player.id});
     }
 
+    test "format a game" {
+        std.debug.print("TODO: implement\n", {});
+        unreachable;
+    }
+
     /// Initialize a new game
     pub fn init(
         allocator: std.mem.Allocator,
@@ -523,15 +133,8 @@ pub const Game = struct {
     }
 
     test "display a game" {
-        const allocator = std.testing.allocator;
-        var game: Game = try Game.init(
-            allocator,
-            PlayerCount.SIX,
-        );
-        std.debug.print("{}\n", .{game});
-        defer game.deinit() catch |err| {
-            std.debug.print("Error: {any}\n", .{err});
-        };
+        std.debug.print("TODO: implement\n", {});
+        unreachable;
     }
 
     /// Get player given player ID // TODO: get player by name/alias
@@ -540,6 +143,23 @@ pub const Game = struct {
             return GameError.PlayerIndexOutOfBounds;
         }
         return &self.players.items[player_id];
+    }
+
+    test "get player" {
+        const allocator = std.testing.allocator;
+        var game: Game = try Game.init(
+            allocator,
+            PlayerCount.SIX,
+        );
+        const player = try game.getPlayer(0);
+        std.debug.print("{any}\n", .{player});
+        try expect(player.id == 0);
+        try expect(player.team == false);
+        try expect(player.hand.items.len == 8);
+        try expect(player.possibilities.len == 48);
+        defer game.deinit() catch |err| {
+            std.debug.print("Error: {any}\n", .{err});
+        };
     }
 
     /// Ask a player for a card
@@ -583,6 +203,11 @@ pub const Game = struct {
             found,
         ));
         return found;
+    }
+
+    test "ask" {
+        std.debug.print("TODO: implement\n", {});
+        unreachable;
     }
 
     /// Helper function to build a list of claims given a list of string-based claims from a player
@@ -727,6 +352,11 @@ pub const Game = struct {
         }
     }
 
+    test "check claim" {
+        std.debug.print("TODO: implement\n", {});
+        unreachable;
+    }
+
     /// Given a claim, execute it
     pub fn execute_claim(
         self: *Game,
@@ -766,6 +396,11 @@ pub const Game = struct {
         // if claim was partially successful (all cards of half set present, but wrong distribution claimed), do nothing
     }
 
+    test "execute claim" {
+        std.debug.print("TODO: implement\n", {});
+        unreachable;
+    }
+
     /// Determine turn after a claim
     pub fn next_turn(self: *Game) !void {
         // if possible to continue, turn stays with valid player on same team
@@ -789,5 +424,10 @@ pub const Game = struct {
 
         // if no players with cards are found, raise exception
         return GameError.NoValidPlayers;
+    }
+
+    test "next turn" {
+        std.debug.print("TODO: implement\n", {});
+        unreachable;
     }
 };

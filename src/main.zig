@@ -1,5 +1,5 @@
 const std = @import("std");
-const lit = @import("lit.zig");
+const lit = @import("root.zig");
 
 fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     // Ref.: https://zig.guide/standard-library/readers-and-writers
@@ -95,6 +95,11 @@ fn help() !void {
     );
 }
 
+test "help" {
+    std.debug.print("TODO: implement\n", {});
+    unreachable;
+}
+
 fn init(
     allocator: std.mem.Allocator,
     curr_game: *?lit.Game,
@@ -139,14 +144,13 @@ fn ask(
     const card = try lit.Card.parseCard(command_list.items[2]);
 
     if (curr_game.*) |*game| {
-        std.debug.print(
-            "{} asking player {d} for card {}.\n",
-            .{
-                game.current_player.id,
-                player_id,
-                card,
-            },
-        );
+        const args = .{ game.current_player.id, player_id, card };
+        const ArgsType = @TypeOf(args);
+        const args_type_info = @typeInfo(ArgsType);
+        if (args_type_info != .Struct) {
+            @compileError("expected tuple or struct argument, found " ++ @typeName(ArgsType));
+        }
+        std.debug.print("{d} asking player {d} for card {any}.\n", args);
         const asked_player = try game.getPlayer(player_id);
         const success = game.ask(asked_player, card) catch |err| {
             switch (err) {
@@ -197,6 +201,11 @@ fn ask(
     }
 }
 
+test "ask" {
+    std.debug.print("TODO: implement\n", {});
+    unreachable;
+}
+
 /// View the last n asks.
 fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     const stdout = std.io.getStdOut();
@@ -220,6 +229,11 @@ fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
     } else {
         try stdout.writer().print("{s}\n", .{NO_GAME_TEXT});
     }
+}
+
+test "last" {
+    std.debug.print("TODO: implement\n", {});
+    unreachable;
 }
 
 fn claim(
@@ -293,6 +307,11 @@ fn claim(
     }
 }
 
+test "claim" {
+    std.debug.print("TODO: implement\n", {});
+    unreachable;
+}
+
 fn end(curr_game: *?lit.Game) !void {
     const stdout = std.io.getStdOut();
 
@@ -303,6 +322,11 @@ fn end(curr_game: *?lit.Game) !void {
     } else {
         try stdout.writer().print("{s}\n", .{NO_GAME_TEXT});
     }
+}
+
+test "end" {
+    std.debug.print("TODO: implement\n", {});
+    unreachable;
 }
 
 pub fn main() !void {
@@ -373,6 +397,11 @@ pub fn main() !void {
             );
         }
     }
+}
+
+test "main" {
+    std.debug.print("TODO: implement\n", {});
+    unreachable;
 }
 
 test {
