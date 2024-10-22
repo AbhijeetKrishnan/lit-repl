@@ -76,7 +76,7 @@ const Rank = enum(u8) {
     }
 
     test "format rank" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
@@ -142,7 +142,7 @@ pub const Card = struct {
     }
 
     test "format a card" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 

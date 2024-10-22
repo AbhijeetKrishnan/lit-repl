@@ -42,7 +42,7 @@ pub const HistoryRecord = struct {
     }
 
     test "format a history record" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
@@ -105,7 +105,7 @@ pub const Game = struct {
     }
 
     test "format a game" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
@@ -133,7 +133,7 @@ pub const Game = struct {
     }
 
     test "display a game" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
@@ -206,7 +206,7 @@ pub const Game = struct {
     }
 
     test "ask" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
@@ -353,7 +353,7 @@ pub const Game = struct {
     }
 
     test "check claim" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
@@ -397,7 +397,7 @@ pub const Game = struct {
     }
 
     test "execute claim" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
@@ -427,7 +427,7 @@ pub const Game = struct {
     }
 
     test "next turn" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 };

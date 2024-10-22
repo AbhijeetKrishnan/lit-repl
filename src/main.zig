@@ -96,7 +96,7 @@ fn help() !void {
 }
 
 test "help" {
-    std.debug.print("TODO: implement\n", {});
+    std.debug.print("TODO: implement\n", .{});
     unreachable;
 }
 
@@ -202,7 +202,7 @@ fn ask(
 }
 
 test "ask" {
-    std.debug.print("TODO: implement\n", {});
+    std.debug.print("TODO: implement\n", .{});
     unreachable;
 }
 
@@ -232,7 +232,7 @@ fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
 }
 
 test "last" {
-    std.debug.print("TODO: implement\n", {});
+    std.debug.print("TODO: implement\n", .{});
     unreachable;
 }
 
@@ -308,7 +308,7 @@ fn claim(
 }
 
 test "claim" {
-    std.debug.print("TODO: implement\n", {});
+    std.debug.print("TODO: implement\n", .{});
     unreachable;
 }
 
@@ -325,7 +325,7 @@ fn end(curr_game: *?lit.Game) !void {
 }
 
 test "end" {
-    std.debug.print("TODO: implement\n", {});
+    std.debug.print("TODO: implement\n", .{});
     unreachable;
 }
 
@@ -400,7 +400,7 @@ pub fn main() !void {
 }
 
 test "main" {
-    std.debug.print("TODO: implement\n", {});
+    std.debug.print("TODO: implement\n", .{});
     unreachable;
 }
 

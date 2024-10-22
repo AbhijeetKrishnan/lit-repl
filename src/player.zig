@@ -106,7 +106,7 @@ pub const Player = struct {
     }
 
     test "display players" {
-        std.debug.print("TODO: implement\n", {});
+        std.debug.print("TODO: implement\n", .{});
         unreachable;
     }
 
