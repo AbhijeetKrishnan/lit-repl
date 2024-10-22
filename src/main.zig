@@ -60,7 +60,7 @@ fn printPrompt(curr_game: ?lit.Game) !void {
 }
 
 const WELCOME_TEXT =
-    \\Welcome to the Infinite!Lit REPL v0.1.0.
+    \\Welcome to the Infinite!Lit REPL v0.3.0.
     \\Type "help" for more information, "init" to start a new game, or "exit" to close the program.
 ;
 
@@ -97,7 +97,7 @@ fn help() !void {
 
 test "help" {
     std.debug.print("TODO: implement\n", .{});
-    unreachable;
+    return error.skip;
 }
 
 fn init(
@@ -150,7 +150,6 @@ fn ask(
         if (args_type_info != .Struct) {
             @compileError("expected tuple or struct argument, found " ++ @typeName(ArgsType));
         }
-        std.debug.print("{d} asking player {d} for card {any}.\n", args);
         const asked_player = try game.getPlayer(player_id);
         const success = game.ask(asked_player, card) catch |err| {
             switch (err) {
@@ -203,7 +202,7 @@ fn ask(
 
 test "ask" {
     std.debug.print("TODO: implement\n", .{});
-    unreachable;
+    return error.skip;
 }
 
 /// View the last n asks.
@@ -233,7 +232,7 @@ fn last(curr_game: *?lit.Game, command_list: *std.ArrayList([]const u8)) !void {
 
 test "last" {
     std.debug.print("TODO: implement\n", .{});
-    unreachable;
+    return error.skip;
 }
 
 fn claim(
@@ -309,7 +308,7 @@ fn claim(
 
 test "claim" {
     std.debug.print("TODO: implement\n", .{});
-    unreachable;
+    return error.skip;
 }
 
 fn end(curr_game: *?lit.Game) !void {
@@ -326,7 +325,7 @@ fn end(curr_game: *?lit.Game) !void {
 
 test "end" {
     std.debug.print("TODO: implement\n", .{});
-    unreachable;
+    return error.skip;
 }
 
 pub fn main() !void {
@@ -401,7 +400,7 @@ pub fn main() !void {
 
 test "main" {
     std.debug.print("TODO: implement\n", .{});
-    unreachable;
+    return error.skip;
 }
 
 test {

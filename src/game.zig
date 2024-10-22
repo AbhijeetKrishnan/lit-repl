@@ -43,7 +43,7 @@ pub const HistoryRecord = struct {
 
     test "format a history record" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     pub fn init(
@@ -106,7 +106,7 @@ pub const Game = struct {
 
     test "format a game" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     /// Initialize a new game
@@ -134,10 +134,11 @@ pub const Game = struct {
 
     test "display a game" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
-    /// Get player given player ID // TODO: get player by name/alias
+    /// Get player given player ID
+    // TODO: get player by name/alias
     pub fn getPlayer(self: *const Game, player_id: u8) !*Player {
         if (player_id >= self.players.items.len or player_id < 0) {
             return GameError.PlayerIndexOutOfBounds;
@@ -152,14 +153,11 @@ pub const Game = struct {
             PlayerCount.SIX,
         );
         const player = try game.getPlayer(0);
-        std.debug.print("{any}\n", .{player});
         try expect(player.id == 0);
         try expect(player.team == false);
         try expect(player.hand.items.len == 8);
         try expect(player.possibilities.len == 48);
-        defer game.deinit() catch |err| {
-            std.debug.print("Error: {any}\n", .{err});
-        };
+        try game.deinit();
     }
 
     /// Ask a player for a card
@@ -207,7 +205,7 @@ pub const Game = struct {
 
     test "ask" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     /// Helper function to build a list of claims given a list of string-based claims from a player
@@ -256,7 +254,6 @@ pub const Game = struct {
     }
 
     test "build claims list" {
-        try expect(@intFromEnum(PlayerCount.SIX) == 6);
         const allocator = std.testing.allocator;
         const game = Game{
             .players = undefined,
@@ -282,11 +279,29 @@ pub const Game = struct {
             &player,
             &claims_strs,
         );
-        defer claims_list.deinit();
+
+        try expect(claims_list.items.len == 3);
+        try expect(claims_list.items[0].items.len == 4);
+        try expect(std.meta.eql(claims_list.items[0].items[0], Card{ .suit = Suit.Clubs, .rank = Rank.Two }));
+        try expect(std.meta.eql(claims_list.items[0].items[1], Card{ .suit = Suit.Diamonds, .rank = Rank.Three }));
+        try expect(std.meta.eql(claims_list.items[0].items[2], Card{ .suit = Suit.Hearts, .rank = Rank.Four }));
+        try expect(std.meta.eql(claims_list.items[0].items[3], Card{ .suit = Suit.Spades, .rank = Rank.Five }));
+
+        try expect(claims_list.items[1].items.len == 3);
+        try expect(std.meta.eql(claims_list.items[1].items[0], Card{ .suit = Suit.Diamonds, .rank = Rank.Three }));
+        try expect(std.meta.eql(claims_list.items[1].items[1], Card{ .suit = Suit.Hearts, .rank = Rank.Four }));
+        try expect(std.meta.eql(claims_list.items[1].items[2], Card{ .suit = Suit.Spades, .rank = Rank.Five }));
+
+        try expect(claims_list.items[2].items.len == 4);
+        try expect(std.meta.eql(claims_list.items[2].items[0], Card{ .suit = Suit.Clubs, .rank = Rank.Two }));
+        try expect(std.meta.eql(claims_list.items[2].items[1], Card{ .suit = Suit.Diamonds, .rank = Rank.Three }));
+        try expect(std.meta.eql(claims_list.items[2].items[2], Card{ .suit = Suit.Hearts, .rank = Rank.Four }));
+        try expect(std.meta.eql(claims_list.items[2].items[3], Card{ .suit = Suit.Spades, .rank = Rank.Five }));
+
         for (claims_list.items) |claim| {
-            std.debug.print("{any}\n", .{claim});
             defer claim.deinit();
         }
+        defer claims_list.deinit();
     }
 
     /// Check whether the claim for a suit is valid
@@ -354,7 +369,7 @@ pub const Game = struct {
 
     test "check claim" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     /// Given a claim, execute it
@@ -398,7 +413,7 @@ pub const Game = struct {
 
     test "execute claim" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     /// Determine turn after a claim
@@ -428,6 +443,6 @@ pub const Game = struct {
 
     test "next turn" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 };

@@ -62,13 +62,6 @@ test "deal cards" {
         0,
     );
 
-    std.debug.print("0: {any}\n", .{hands.items[0].items});
-    std.debug.print("1: {any}\n", .{hands.items[1].items});
-    std.debug.print("2: {any}\n", .{hands.items[2].items});
-    std.debug.print("3: {any}\n", .{hands.items[3].items});
-    std.debug.print("4: {any}\n", .{hands.items[4].items});
-    std.debug.print("5: {any}\n", .{hands.items[5].items});
-
     try expect(hands.items.len == 6);
     for (hands.items) |hand| {
         try expect(hand.items.len == 8);
@@ -107,7 +100,7 @@ pub const Player = struct {
 
     test "display players" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     /// Initialize the set of players for the game
@@ -123,7 +116,7 @@ pub const Player = struct {
         for (0..@intFromEnum(num_players)) |i| {
             try players.append(Player{
                 .id = i,
-                .team = (i % 2 == 0),
+                .team = (i % 2 != 0),
                 .hand = undefined,
                 .possibilities = undefined, // TODO: initialize possibilities to Unknown
             });
@@ -146,9 +139,12 @@ pub const Player = struct {
             allocator,
             PlayerCount.SIX,
         );
-        defer players.deinit();
         for (players.items) |player| {
             try expect(player.hand.items.len == 8);
         }
+        for (players.items) |player| {
+            try player.deinit();
+        }
+        defer players.deinit();
     }
 };

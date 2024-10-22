@@ -35,7 +35,7 @@ pub const Suit = enum(u8) {
     }
 };
 
-const Rank = enum(u8) {
+pub const Rank = enum(u8) {
     Two,
     Three,
     Four,
@@ -77,7 +77,7 @@ const Rank = enum(u8) {
 
     test "format rank" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     pub fn parseRank(rank: []const u8) !Rank {
@@ -105,7 +105,6 @@ const Rank = enum(u8) {
     }
 
     test "parse rank" {
-        var rank: Rank = undefined;
         const tests = [_]u8{
             '2', '3', '4', '5', '6', '7', '9', '0', 'j', 'J', 'q', 'Q', 'k', 'K', 'a', 'A',
         };
@@ -114,8 +113,7 @@ const Rank = enum(u8) {
             Rank.Jack, Rank.Queen, Rank.Queen, Rank.King, Rank.King, Rank.Ace,   Rank.Ace,
         };
         for (tests, expected) |t, e| {
-            rank = try Rank.parseRank(&[_]u8{t});
-            std.debug.print("{c}\n", .{t});
+            const rank = try Rank.parseRank(&[_]u8{t});
             try expect(rank == e);
         }
         try expect(try Rank.parseRank("10") == Rank.Ten);
@@ -143,7 +141,7 @@ pub const Card = struct {
 
     test "format a card" {
         std.debug.print("TODO: implement\n", .{});
-        unreachable;
+        return error.skip;
     }
 
     pub fn parseCard(card: []const u8) !Card {
@@ -169,7 +167,6 @@ pub const Card = struct {
 
     test "parse a card" {
         const card: Card = try Card.parseCard("2C");
-        std.debug.print("{any}\n", .{card});
         try expect(card.suit == Suit.Clubs);
         try expect(card.rank == Rank.Two);
     }
@@ -244,7 +241,6 @@ test "parse a list of cards" {
         cards_str,
     );
     defer cards.deinit();
-    std.debug.print("{any}\n", .{cards});
     try expect(cards.items.len == 4);
 }
 
@@ -278,7 +274,6 @@ pub fn generateDeck() [48]Card {
 
 test "generate a deck" {
     const deck: [48]Card = generateDeck();
-    std.debug.print("{any}\n", .{deck});
     try expect(deck.len == 48);
 }
 

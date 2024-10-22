@@ -38,7 +38,7 @@ Start the program with -
 
 ```bash
 $ zig build run
-Welcome to the Infinite!Lit REPL v0.1.0.
+Welcome to the Infinite!Lit REPL v0.3.0.
 Type "help" for more information, "init" to start a new game, or "exit" to close the program.
 ```
 
@@ -53,7 +53,7 @@ The `0*` indicates that it is Player 0's turn to play.
 
 To view the current game state (from a global POV) -
 ```bash
-lit> show
+lit 0*> show
 ID: 0
 Team: true
 Hand: { ♣J, ♠2, ♥3, ♦4, ♠9, ♠Q, ♣6, ♣Q }
@@ -83,7 +83,7 @@ Hand: { ♣J, ♠2, ♥3, ♦4, ♠9, ♠Q, ♣6, ♣Q }
 
 To get a list of all commands -
 ```bash
-lit> help
+lit 0*> help
   help: print this help text
   exit: exit the Infinite!Lit REPL
   init: start a new game with 6 players
@@ -96,9 +96,10 @@ lit> help
 
 To exit the program -
 ```bash
-lit> exit
+lit 0*> exit
+A game is currently in progress. Are you sure you want to exit? [y/N] y
+Game terminated.
 Exiting...
-$ 
 ```
 
 To ask for a card -
@@ -137,10 +138,10 @@ Cards are represented using a string that is matched by the regex `(?<val>[02-9j
 
 To view the last $n$ asks (default $n = 3$) -
 ```bash
-lit 3*> last 2
-Player 0 unsucessfully asked Player 3 for card ♠K
-Player 0 successfully asked Player 1 for card ♥K
-lit 3*> 
+lit 1*> last 2
+Player 0 unsucessfully asked Player 1 for card ♦3
+Player 0 successfully asked Player 1 for card ♦2
+lit 1*> 
 ```
 
 To claim a set -
